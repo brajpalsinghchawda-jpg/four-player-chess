@@ -261,15 +261,16 @@ io.on("connection", (socket) => {
     const legal = Rules.legalMoves(room.state, from.r, from.c);
     if (!legal.some(([r, c]) => r === to.r && c === to.c)) return;
 
-    const captured = room.state[to.r][to.c];
-    room.state[to.r][to.c] = piece;
-    room.state[from.r][from.c] = null;
+    const movedType = piece.type;
+    const result = Rules.applyMove(room.state, from, to);   // also handles castling and promotion
     if (room.clock) room.times[myColor] += room.clock.bonus; // bonus seconds for moving
     advanceTurn(room);
     room.last =
-      `${displayName(room, myColor)} (${piece.color} ${piece.type}): ` +
+      `${displayName(room, myColor)} (${myColor} ${movedType}): ` +
       `${Rules.squareName(from.r, from.c)} to ${Rules.squareName(to.r, to.c)}` +
-      (captured ? ` (captured ${captured.color} ${captured.type})` : "");
+      (result.castled ? " (castled)" : "") +
+      (result.promoted ? " (promoted to queen)" : "") +
+      (result.captured ? ` (captured ${result.captured.color} ${result.captured.type})` : "");
     resolveTurn(room);                 // is the next player checkmated or stalemated?
 
     broadcast(roomCode);
