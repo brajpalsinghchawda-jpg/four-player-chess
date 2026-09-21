@@ -90,10 +90,12 @@ function advanceTurn(room) {
 }
 
 // Takes a player out of the game. Their pieces stay on the board as dead pieces.
-function eliminate(room, color, reason) {
+// keepLast = add the message after the last move instead of replacing it.
+function eliminate(room, color, reason, keepLast) {
   room.eliminated[color] = true;
   Rules.markDead(room.state, color);
-  room.last = `${displayName(room, color)} ${reason}`;
+  const message = `${displayName(room, color)} ${reason}`;
+  room.last = keepLast && room.last ? `${room.last} — ${message}` : message;
 
   const alive = COLORS.filter((c) => !room.eliminated[c]);
   if (alive.length <= 1) {
@@ -105,6 +107,18 @@ function eliminate(room, color, reason) {
   syncTicking(room);
 }
 
+// Checks the player whose turn it is. No legal move and in check = checkmate;
+// no legal move and not in check = stalemate. Either way that player is out,
+// and we keep going in case the next player is stuck too.
+function resolveTurn(room) {
+  while (!room.over) {
+    const color = COLORS[room.turnIndex];
+    if (Rules.hasAnyLegalMove(room.state, color)) return;
+    const mated = Rules.isInCheck(room.state, color);
+    eliminate(room, color, mated ? "was checkmated" : "is stalemated", true);
+  }
+}
+
 // Returns true if the current player just ran out of time
 function checkTimeout(room) {
   if (room.tickingSince === null) return false;
@@ -113,6 +127,7 @@ function checkTimeout(room) {
   if (room.times[color] > 0) return false;
   room.times[color] = 0;
   eliminate(room, color, "ran out of time");
+  resolveTurn(room);
   return true;
 }
 
@@ -255,6 +270,7 @@ io.on("connection", (socket) => {
       `${displayName(room, myColor)} (${piece.color} ${piece.type}): ` +
       `${Rules.squareName(from.r, from.c)} to ${Rules.squareName(to.r, to.c)}` +
       (captured ? ` (captured ${captured.color} ${captured.type})` : "");
+    resolveTurn(room);                 // is the next player checkmated or stalemated?
 
     broadcast(roomCode);
   });
@@ -274,3 +290,5 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`4-player chess is running: http://localhost:${PORT}`);
 });
+
+if (process.env.CHESS_TEST) module.exports = { rooms }; // lets the automatic tests look inside
