@@ -10,10 +10,18 @@ const io = new Server(server);
 
 app.use(express.static(path.join(__dirname, "public")));
 
+const COLORS = Rules.TURN_ORDER;
+const CLOCK_MINUTES = [0, 1, 3, 5, 10]; // 0 means no timer
+const CLOCK_BONUS = [0, 2, 5, 10];      // seconds added after each move
+
 /* ---------- Rooms ---------- */
-// rooms: code -> { state, turnIndex, seats, names, last, emptySince }
-// seats[color] holds the socket id of the player sitting there, or null.
-// names[color] holds that player's display name.
+// rooms: code -> room
+// room.seats[color]  = socket id of the player sitting there, or null
+// room.names[color]  = that player's display name
+// room.started       = true once all four seats were filled; after that the game never waits for anyone
+// room.clock         = { base, bonus } in milliseconds, or null for "no timer"
+// room.times[color]  = time left (ms) as of the last update
+// room.tickingSince  = timestamp when the current player's clock started running, or null
 const rooms = new Map();
 
 function makeCode() {
@@ -25,20 +33,90 @@ function makeCode() {
   return code;
 }
 
-function newRoom() {
-  return {
-    state: Rules.newState(),
-    turnIndex: 0,
-    seats: { red: null, blue: null, yellow: null, green: null },
-    names: { red: null, blue: null, yellow: null, green: null },
-    last: "",
-    emptySince: null,
-  };
-}
-
-const allSeated = (room) => Rules.TURN_ORDER.every((c) => room.seats[c]);
 const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
+function newRoom(minutes, bonusSeconds) {
+  const room = {
+    seats: { red: null, blue: null, yellow: null, green: null },
+    names: { red: null, blue: null, yellow: null, green: null },
+    emptySince: null,
+    clock: minutes > 0 ? { base: minutes * 60 * 1000, bonus: bonusSeconds * 1000 } : null,
+  };
+  resetGame(room);
+  return room;
+}
+
+// Puts the board, clocks and turn back to the start (used for new rooms and rematches)
+function resetGame(room) {
+  room.state = Rules.newState();
+  room.turnIndex = 0;
+  room.last = "";
+  room.over = false;
+  room.winner = null;
+  room.eliminated = { red: false, blue: false, yellow: false, green: false };
+  const base = room.clock ? room.clock.base : 0;
+  room.times = { red: base, blue: base, yellow: base, green: base };
+  room.tickingSince = null;
+  room.started = COLORS.every((c) => room.seats[c]);
+  syncTicking(room);
+}
+
+const displayName = (room, color) => room.names[color] || capitalize(color);
+
+/* ---------- Clocks ---------- */
+// Charges the time since the last update to the player whose turn it is
+function settle(room) {
+  if (room.tickingSince === null) return;
+  const now = Date.now();
+  room.times[COLORS[room.turnIndex]] -= now - room.tickingSince;
+  room.tickingSince = now;
+}
+
+// Starts or stops the clock depending on the state of the game.
+// Once the game has started, the clock keeps running even if a player disconnects.
+function syncTicking(room) {
+  const shouldTick = Boolean(room.clock) && !room.over && room.started;
+  if (shouldTick && room.tickingSince === null) room.tickingSince = Date.now();
+  if (!shouldTick && room.tickingSince !== null) {
+    settle(room);
+    room.tickingSince = null;
+  }
+}
+
+function advanceTurn(room) {
+  do {
+    room.turnIndex = (room.turnIndex + 1) % COLORS.length;
+  } while (room.eliminated[COLORS[room.turnIndex]]);
+}
+
+// Takes a player out of the game. Their pieces stay on the board as dead pieces.
+function eliminate(room, color, reason) {
+  room.eliminated[color] = true;
+  Rules.markDead(room.state, color);
+  room.last = `${displayName(room, color)} ${reason}`;
+
+  const alive = COLORS.filter((c) => !room.eliminated[c]);
+  if (alive.length <= 1) {
+    room.over = true;
+    room.winner = alive[0] || null;
+  } else if (COLORS[room.turnIndex] === color) {
+    advanceTurn(room);
+  }
+  syncTicking(room);
+}
+
+// Returns true if the current player just ran out of time
+function checkTimeout(room) {
+  if (room.tickingSince === null) return false;
+  settle(room);
+  const color = COLORS[room.turnIndex];
+  if (room.times[color] > 0) return false;
+  room.times[color] = 0;
+  eliminate(room, color, "ran out of time");
+  return true;
+}
+
+/* ---------- Sending state to players ---------- */
 // Names come from players, so clean them: no HTML characters, max 16 letters
 function cleanName(raw, color) {
   const name = String(raw || "").replace(/[<>&"'`]/g, "").replace(/\s+/g, " ").trim().slice(0, 16);
@@ -48,17 +126,30 @@ function cleanName(raw, color) {
 function broadcast(code) {
   const room = rooms.get(code);
   if (!room) return;
+  settle(room);
   io.to(code).emit("room", {
     code,
     state: room.state,
     turnIndex: room.turnIndex,
-    // seats[color] is the player's name, or null when the seat is empty
-    seats: Object.fromEntries(
-      Rules.TURN_ORDER.map((c) => [c, room.seats[c] ? room.names[c] : null])
-    ),
+    seats: Object.fromEntries(COLORS.map((c) => [c, room.seats[c] ? room.names[c] : null])),
+    names: Object.fromEntries(COLORS.map((c) => [c, displayName(room, c)])),
+    eliminated: room.eliminated,
+    started: room.started,
+    over: room.over,
+    winner: room.winner,
+    clock: room.clock,
+    times: Object.fromEntries(COLORS.map((c) => [c, Math.max(0, Math.round(room.times[c]))])),
+    ticking: room.tickingSince !== null,
     last: room.last,
   });
 }
+
+// Every quarter of a second, check whether anyone's time has run out
+setInterval(() => {
+  for (const [code, room] of rooms) {
+    if (checkTimeout(room)) broadcast(code);
+  }
+}, 250);
 
 // Delete rooms that have been empty for 15 minutes
 setInterval(() => {
@@ -78,9 +169,9 @@ io.on("connection", (socket) => {
     if (room) {
       if (myColor && room.seats[myColor] === socket.id) {
         room.seats[myColor] = null;
-        room.names[myColor] = null;
+        if (!room.started) room.names[myColor] = null; // during a game, keep the name
       }
-      if (Rules.TURN_ORDER.every((c) => !room.seats[c])) room.emptySince = Date.now();
+      if (COLORS.every((c) => !room.seats[c])) room.emptySince = Date.now();
       socket.leave(roomCode);
       broadcast(roomCode);
     }
@@ -98,16 +189,19 @@ io.on("connection", (socket) => {
 
     // Take the seat you had before if it is free, otherwise the first free seat
     let color = null;
-    if (Rules.TURN_ORDER.includes(preferredColor) && !room.seats[preferredColor]) {
+    if (COLORS.includes(preferredColor) && !room.seats[preferredColor]) {
       color = preferredColor;
     } else {
-      color = Rules.TURN_ORDER.find((c) => !room.seats[c]) || null;
+      color = COLORS.find((c) => !room.seats[c] && !room.eliminated[c]) || null;
     }
     if (color) {
       room.seats[color] = socket.id;
       room.names[color] = cleanName(name, color);
     }
     room.emptySince = null;
+    // The game starts the first time all four seats are filled
+    if (!room.started && COLORS.every((c) => room.seats[c])) room.started = true;
+    syncTicking(room);
 
     roomCode = code;
     myColor = color;
@@ -117,9 +211,12 @@ io.on("connection", (socket) => {
   }
 
   socket.on("createRoom", (data) => {
+    data = data || {};
+    const minutes = CLOCK_MINUTES.includes(Number(data.minutes)) ? Number(data.minutes) : 5;
+    const bonus = CLOCK_BONUS.includes(Number(data.bonus)) ? Number(data.bonus) : 0;
     const code = makeCode();
-    rooms.set(code, newRoom());
-    sit(code, null, data && data.name);
+    rooms.set(code, newRoom(minutes, bonus));
+    sit(code, null, data.name);
   });
 
   socket.on("joinRoom", (data) => {
@@ -132,8 +229,12 @@ io.on("connection", (socket) => {
     if (!room || !myColor || !data || !data.from || !data.to) return;
 
     // The server checks everything. Never trust the browser.
-    if (!allSeated(room)) return;
-    if (Rules.TURN_ORDER[room.turnIndex] !== myColor) return;
+    if (room.over || !room.started) return;
+    if (checkTimeout(room)) {          // someone ran out of time just before this move
+      broadcast(roomCode);
+      return;
+    }
+    if (COLORS[room.turnIndex] !== myColor) return;
 
     const { from, to } = data;
     const coords = [from.r, from.c, to.r, to.c];
@@ -148,12 +249,21 @@ io.on("connection", (socket) => {
     const captured = room.state[to.r][to.c];
     room.state[to.r][to.c] = piece;
     room.state[from.r][from.c] = null;
-    room.turnIndex = (room.turnIndex + 1) % Rules.TURN_ORDER.length;
+    if (room.clock) room.times[myColor] += room.clock.bonus; // bonus seconds for moving
+    advanceTurn(room);
     room.last =
-      `${room.names[myColor]} (${piece.color} ${piece.type}): ` +
+      `${displayName(room, myColor)} (${piece.color} ${piece.type}): ` +
       `${Rules.squareName(from.r, from.c)} to ${Rules.squareName(to.r, to.c)}` +
       (captured ? ` (captured ${captured.color} ${captured.type})` : "");
 
+    broadcast(roomCode);
+  });
+
+  // Anyone sitting at the table can start a new game once this one is over
+  socket.on("rematch", () => {
+    const room = roomCode && rooms.get(roomCode);
+    if (!room || !myColor || !room.over) return;
+    resetGame(room);
     broadcast(roomCode);
   });
 
