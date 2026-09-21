@@ -11,8 +11,9 @@ const io = new Server(server);
 app.use(express.static(path.join(__dirname, "public")));
 
 /* ---------- Rooms ---------- */
-// rooms: code -> { state, turnIndex, seats: { red, blue, yellow, green }, last, emptySince }
+// rooms: code -> { state, turnIndex, seats, names, last, emptySince }
 // seats[color] holds the socket id of the player sitting there, or null.
+// names[color] holds that player's display name.
 const rooms = new Map();
 
 function makeCode() {
@@ -29,12 +30,20 @@ function newRoom() {
     state: Rules.newState(),
     turnIndex: 0,
     seats: { red: null, blue: null, yellow: null, green: null },
+    names: { red: null, blue: null, yellow: null, green: null },
     last: "",
     emptySince: null,
   };
 }
 
 const allSeated = (room) => Rules.TURN_ORDER.every((c) => room.seats[c]);
+const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+// Names come from players, so clean them: no HTML characters, max 16 letters
+function cleanName(raw, color) {
+  const name = String(raw || "").replace(/[<>&"'`]/g, "").replace(/\s+/g, " ").trim().slice(0, 16);
+  return name || capitalize(color);
+}
 
 function broadcast(code) {
   const room = rooms.get(code);
@@ -43,7 +52,10 @@ function broadcast(code) {
     code,
     state: room.state,
     turnIndex: room.turnIndex,
-    seats: Object.fromEntries(Rules.TURN_ORDER.map((c) => [c, Boolean(room.seats[c])])),
+    // seats[color] is the player's name, or null when the seat is empty
+    seats: Object.fromEntries(
+      Rules.TURN_ORDER.map((c) => [c, room.seats[c] ? room.names[c] : null])
+    ),
     last: room.last,
   });
 }
@@ -64,7 +76,10 @@ io.on("connection", (socket) => {
   function leave() {
     const room = roomCode && rooms.get(roomCode);
     if (room) {
-      if (myColor && room.seats[myColor] === socket.id) room.seats[myColor] = null;
+      if (myColor && room.seats[myColor] === socket.id) {
+        room.seats[myColor] = null;
+        room.names[myColor] = null;
+      }
       if (Rules.TURN_ORDER.every((c) => !room.seats[c])) room.emptySince = Date.now();
       socket.leave(roomCode);
       broadcast(roomCode);
@@ -73,7 +88,7 @@ io.on("connection", (socket) => {
     myColor = null;
   }
 
-  function sit(code, preferredColor) {
+  function sit(code, preferredColor, name) {
     const room = rooms.get(code);
     if (!room) {
       socket.emit("problem", "Room not found. Check the code and try again.");
@@ -88,7 +103,10 @@ io.on("connection", (socket) => {
     } else {
       color = Rules.TURN_ORDER.find((c) => !room.seats[c]) || null;
     }
-    if (color) room.seats[color] = socket.id;
+    if (color) {
+      room.seats[color] = socket.id;
+      room.names[color] = cleanName(name, color);
+    }
     room.emptySince = null;
 
     roomCode = code;
@@ -98,15 +116,15 @@ io.on("connection", (socket) => {
     broadcast(code);
   }
 
-  socket.on("createRoom", () => {
+  socket.on("createRoom", (data) => {
     const code = makeCode();
     rooms.set(code, newRoom());
-    sit(code, null);
+    sit(code, null, data && data.name);
   });
 
   socket.on("joinRoom", (data) => {
     const code = String((data && data.code) || "").trim().toUpperCase();
-    sit(code, data && data.color);
+    sit(code, data && data.color, data && data.name);
   });
 
   socket.on("move", (data) => {
@@ -132,7 +150,8 @@ io.on("connection", (socket) => {
     room.state[from.r][from.c] = null;
     room.turnIndex = (room.turnIndex + 1) % Rules.TURN_ORDER.length;
     room.last =
-      `${piece.color} ${piece.type}: ${Rules.squareName(from.r, from.c)} to ${Rules.squareName(to.r, to.c)}` +
+      `${room.names[myColor]} (${piece.color} ${piece.type}): ` +
+      `${Rules.squareName(from.r, from.c)} to ${Rules.squareName(to.r, to.c)}` +
       (captured ? ` (captured ${captured.color} ${captured.type})` : "");
 
     broadcast(roomCode);
