@@ -55,9 +55,11 @@
     if (!piece) return [];
     const out = [];
 
+    // A living king can never be captured, but the pieces of an eliminated player
+    // (marked dead) stay on the board and can be captured like any other piece.
     const isEnemy = (nr, nc) => {
       const t = state[nr][nc];
-      return t && t.color !== piece.color && t.type !== "K";
+      return t && t.color !== piece.color && (t.type !== "K" || t.dead);
     };
 
     const slide = (dirs) => {
@@ -110,5 +112,14 @@
     return out;
   }
 
-  return { SIZE, TURN_ORDER, newState, legalMoves, isVoid, inBoard, squareName };
+  // When a player is eliminated, their pieces stay on the board but become dead
+  function markDead(state, color) {
+    for (const row of state) {
+      for (const piece of row) {
+        if (piece && piece.color === color) piece.dead = true;
+      }
+    }
+  }
+
+  return { SIZE, TURN_ORDER, newState, legalMoves, markDead, isVoid, inBoard, squareName };
 });

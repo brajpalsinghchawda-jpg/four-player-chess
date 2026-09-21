@@ -30,7 +30,7 @@
     padding: 16px;
   }
   h1 { margin: 0 0 4px; font-size: 26px; }
-  button, input {
+  button, input, select {
     font: inherit;
     border-radius: 6px;
     padding: 8px 14px;
@@ -46,30 +46,38 @@
     color: inherit;
     border: 1px solid rgba(255, 255, 255, 0.4);
   }
-  input {
+  input, select {
     border: 1px solid rgba(255, 255, 255, 0.4);
     background: rgba(0, 0, 0, 0.2);
     color: inherit;
   }
+  select option { color: #22302b; }
   #name { width: 14em; }
   #code { width: 9em; text-transform: uppercase; }
   #lobby { display: flex; flex-direction: column; align-items: center; gap: 14px; }
-  #lobby .row { display: flex; gap: 8px; }
+  #lobby .row { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+  #lobby label { display: flex; align-items: center; gap: 8px; font-size: 15px; }
   #game { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; }
 
   #info { display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 16px; }
   #info .line { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px 18px; }
+  #turn.over { font-size: 20px; font-weight: 700; }
   .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+
   #seats { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 10px; font-size: 14px; }
   #seats .seat { opacity: 0.45; padding: 3px 10px; border-radius: 999px; border: 1px solid transparent; }
   #seats .seat.taken { opacity: 1; }
   #seats .seat.active { border-color: #f1efe9; font-weight: 600; }
+  #seats .seat.out { opacity: 0.5; text-decoration: line-through; }
+  #seats .seat.offline { opacity: 0.8; font-style: italic; }
+  #seats .clock { margin-left: 8px; font-variant-numeric: tabular-nums; }
+  #seats .clock.low { color: #ff8f7d; font-weight: 700; }
 
   #board {
     display: grid;
     grid-template-columns: repeat(14, 1fr);
     grid-template-rows: repeat(14, 1fr);
-    width: min(94vw, 68vh, 640px);
+    width: min(94vw, 66vh, 640px);
     aspect-ratio: 1;
   }
   .sq {
@@ -77,7 +85,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: min(5.4vw, 4.2vh, 30px);
+    font-size: min(5.4vw, 4.1vh, 30px);
     line-height: 1;
     cursor: pointer;
     user-select: none;
@@ -106,6 +114,7 @@
   .blue { color: var(--blue); }
   .yellow { color: var(--yellow); }
   .green { color: var(--green); }
+  .sq.dead { color: #857f74; opacity: 0.75; }
 
   #last { min-height: 1.4em; font-size: 14px; opacity: 0.85; text-align: center; }
   #note { min-height: 1.4em; font-size: 14px; color: #f3c98b; text-align: center; }
@@ -115,6 +124,25 @@
   <section id="lobby">
     <h1>4-Player Chess</h1>
     <input id="name" placeholder="Your name" maxlength="16" autocomplete="off">
+    <div class="row">
+      <label>Time each
+        <select id="minutes">
+          <option value="0">No timer</option>
+          <option value="1">1 min</option>
+          <option value="3">3 min</option>
+          <option value="5" selected>5 min</option>
+          <option value="10">10 min</option>
+        </select>
+      </label>
+      <label>Bonus per move
+        <select id="bonus">
+          <option value="0" selected>0 sec</option>
+          <option value="2">2 sec</option>
+          <option value="5">5 sec</option>
+          <option value="10">10 sec</option>
+        </select>
+      </label>
+    </div>
     <button id="create" type="button">Create a room</button>
     <div class="row">
       <input id="code" placeholder="Room code" maxlength="6" autocomplete="off">
@@ -127,7 +155,10 @@
       <div class="line">
         <span id="you"></span>
         <span id="turn"></span>
+      </div>
+      <div class="line">
         <button id="invite" class="ghost" type="button">Copy invite link</button>
+        <button id="again" type="button" hidden>Play again</button>
       </div>
       <div id="seats"></div>
     </div>
@@ -153,9 +184,10 @@
 
   const socket = io();
   let me = { code: null, color: null };
-  let room = null;      // latest game state from the server
-  let selected = null;  // { r, c } in real board coordinates
-  let targets = [];     // squares the selected piece can go to
+  let room = null;         // latest game state from the server
+  let receivedAt = 0;      // when that state arrived (used to run the clocks smoothly)
+  let selected = null;     // { r, c } in real board coordinates
+  let targets = [];        // squares the selected piece can go to
 
   /* ---------- Names and joining ---------- */
   try { $("name").value = localStorage.getItem("chess-name") || ""; } catch (e) {}
@@ -203,13 +235,19 @@
 
   socket.on("room", (r) => {
     room = r;
+    receivedAt = performance.now();
     selected = null;
     targets = [];
     render();
   });
 
-  $("create").addEventListener("click", () => socket.emit("createRoom", { name: myName() }));
+  $("create").addEventListener("click", () => socket.emit("createRoom", {
+    name: myName(),
+    minutes: Number($("minutes").value),
+    bonus: Number($("bonus").value),
+  }));
   $("join").addEventListener("click", () => join($("code").value));
+  $("again").addEventListener("click", () => socket.emit("rematch"));
   $("invite").addEventListener("click", async () => {
     try {
       await navigator.clipboard.writeText(location.href);
@@ -232,9 +270,33 @@
     return [r, c];
   }
 
+  /* ---------- Clocks ---------- */
+  function remainingMs(color) {
+    let t = room.times[color];
+    if (room.ticking && TURN_ORDER[room.turnIndex] === color) t -= performance.now() - receivedAt;
+    return Math.max(0, t);
+  }
+
+  function formatTime(ms) {
+    const total = Math.ceil(ms / 1000);
+    return Math.floor(total / 60) + ":" + String(total % 60).padStart(2, "0");
+  }
+
+  function updateClocks() {
+    if (!room || !room.clock) return;
+    document.querySelectorAll("#seats .clock").forEach((el) => {
+      const ms = remainingMs(el.dataset.color);
+      el.textContent = formatTime(ms);
+      el.classList.toggle("low", ms < 10000 && !room.eliminated[el.dataset.color]);
+    });
+  }
+  setInterval(updateClocks, 200);
+
   /* ---------- Playing ---------- */
   const seatedCount = () => TURN_ORDER.filter((c) => room.seats[c]).length;
-  const isMyTurn = () => room && seatedCount() === 4 && me.color === TURN_ORDER[room.turnIndex];
+  const isMyTurn = () =>
+    room && room.started && !room.over && me.color &&
+    !room.eliminated[me.color] && me.color === TURN_ORDER[room.turnIndex];
 
   function onSquareClick(r, c) {
     if (!isMyTurn()) return;
@@ -261,24 +323,40 @@
   /* ---------- Drawing ---------- */
   function render() {
     if (!room) return;
-    const seated = seatedCount();
     const turnColor = TURN_ORDER[room.turnIndex];
     const turns = me.color ? ROTATION[me.color] : 0;
 
     $("you").innerHTML = me.color
-      ? `<span class="dot" style="background:${COLOR_HEX[me.color]}"></span>You are ${cap(me.color)}`
+      ? `<span class="dot" style="background:${COLOR_HEX[me.color]}"></span>You are ${cap(me.color)}` +
+        (room.eliminated[me.color] ? " (out)" : "")
       : "Room is full. You are watching.";
 
-    $("turn").textContent = seated < 4
-      ? `Waiting for players (${seated}/4)`
-      : `${room.seats[turnColor]}'s turn` + (isMyTurn() ? " (that's you)" : "");
+    const turnEl = $("turn");
+    turnEl.classList.toggle("over", room.over);
+    if (room.over) {
+      turnEl.textContent = room.winner ? `${room.names[room.winner]} wins!` : "Game over";
+    } else if (!room.started) {
+      turnEl.textContent = `Waiting for players (${seatedCount()}/4)`;
+    } else {
+      turnEl.textContent = `${room.names[turnColor]}'s turn` + (isMyTurn() ? " (that's you)" : "");
+    }
+
+    $("again").hidden = !(room.over && me.color);
 
     $("seats").innerHTML = TURN_ORDER.map((c) => {
       const name = room.seats[c];
-      const cls = "seat" + (name ? " taken" : "") + (name && seated === 4 && c === turnColor ? " active" : "");
+      const out = room.eliminated[c];
+      const offline = room.started && !name && !out;
+      const cls = "seat" + (name ? " taken" : "") + (out ? " out" : "") + (offline ? " offline" : "") +
+        (room.started && !room.over && !out && c === turnColor ? " active" : "");
+      const label = name ? esc(name)
+        : (offline ? esc(room.names[c]) + " (offline)" : (out ? esc(room.names[c]) : "empty"));
+      const star = room.over && room.winner === c ? " ★" : "";
       return `<span class="${cls}"><span class="dot" style="background:${COLOR_HEX[c]}"></span>` +
-             `${name ? esc(name) : "empty"}</span>`;
+             `${label}${star}` +
+             (room.clock ? `<span class="clock" data-color="${c}"></span>` : "") + `</span>`;
     }).join("");
+    updateClocks();
 
     $("last").textContent = room.last;
 
@@ -295,7 +373,7 @@
           el.classList.add((i + j) % 2 === 0 ? "light" : "dark");
           const piece = room.state[r][c];
           if (piece) {
-            el.classList.add(piece.color);
+            el.classList.add(piece.dead ? "dead" : piece.color);
             el.textContent = GLYPH[piece.type] + "\uFE0E";
           }
           if (selected && selected.r === r && selected.c === c) el.classList.add("picked");
