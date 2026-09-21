@@ -89,7 +89,10 @@
       case "B": slide(BISHOP_DIRS); break;
       case "Q": slide(ROOK_DIRS.concat(BISHOP_DIRS)); break;
       case "N": jump(KNIGHT_JUMPS); break;
-      case "K": jump(ROOK_DIRS.concat(BISHOP_DIRS)); break;
+      case "K":
+        jump(ROOK_DIRS.concat(BISHOP_DIRS));
+        castlingMoves(state, piece, r, c, out);
+        break;
       case "P": {
         const [fr, fc] = FORWARD[piece.color];
         const r1 = r + fr, c1 = c + fc;
@@ -118,6 +121,93 @@
         if (piece && piece.color === color) piece.dead = true;
       }
     }
+  }
+
+  /* ---------- Castling, promotion and making a move ---------- */
+
+  const KING_INDEX = { green: 7, red: 7, blue: 6, yellow: 6 }; // where each king starts along its back line
+
+  // Square number i (3 to 10) along a color's back line
+  function backSquare(color, i) {
+    if (color === "green") return [13, i];
+    if (color === "blue") return [0, i];
+    if (color === "red") return [i, 0];
+    return [i, 13]; // yellow
+  }
+
+  // Pawns promote to a queen on their 8th rank (the middle of the board)
+  function isPromotionSquare(color, r, c) {
+    return (color === "green" && r === 6) || (color === "blue" && r === 7) ||
+           (color === "red" && c === 7) || (color === "yellow" && c === 6);
+  }
+
+  // Adds the castling squares (two steps toward an unmoved rook) to `out`.
+  // Rules: king and rook never moved, squares between them empty, the king is not in check,
+  // and the king does not pass through or land on an attacked square.
+  function castlingMoves(state, king, r, c, out) {
+    if (king.moved || king.dead) return;
+    const color = king.color;
+    const kIdx = KING_INDEX[color];
+    const [homeR, homeC] = backSquare(color, kIdx);
+    if (r !== homeR || c !== homeC) return;
+    if (isInCheck(state, color)) return;
+
+    for (const rookIdx of [3, 10]) {
+      const [rr, rc] = backSquare(color, rookIdx);
+      const rook = state[rr][rc];
+      if (!rook || rook.type !== "R" || rook.color !== color || rook.moved || rook.dead) continue;
+
+      const dir = rookIdx > kIdx ? 1 : -1;
+      let clear = true;
+      for (let i = kIdx + dir; i !== rookIdx; i += dir) {
+        const [sr, sc] = backSquare(color, i);
+        if (state[sr][sc]) { clear = false; break; }
+      }
+      if (!clear) continue;
+
+      let safe = true;
+      for (const step of [1, 2]) {
+        const [sr, sc] = backSquare(color, kIdx + dir * step);
+        state[r][c] = null;
+        state[sr][sc] = king;
+        const attacked = isInCheck(state, color);
+        state[sr][sc] = null;
+        state[r][c] = king;
+        if (attacked) { safe = false; break; }
+      }
+      if (safe) out.push(backSquare(color, kIdx + dir * 2));
+    }
+  }
+
+  // Plays a move on the board (already checked as legal). Handles castling and promotion.
+  function applyMove(state, from, to) {
+    const piece = state[from.r][from.c];
+    const result = { captured: state[to.r][to.c], castled: false, promoted: false };
+
+    // A king moving two squares is castling: the rook jumps to the square the king crossed
+    if (piece.type === "K" && Math.max(Math.abs(to.r - from.r), Math.abs(to.c - from.c)) === 2) {
+      const dr = Math.sign(to.r - from.r), dc = Math.sign(to.c - from.c);
+      let r = from.r + dr, c = from.c + dc;
+      while (inBoard(r, c) && !state[r][c]) { r += dr; c += dc; }
+      const rook = inBoard(r, c) ? state[r][c] : null;
+      if (rook && rook.type === "R") {
+        state[r][c] = null;
+        state[from.r + dr][from.c + dc] = rook;
+        rook.moved = true;
+        result.castled = true;
+      }
+    }
+
+    state[to.r][to.c] = piece;
+    state[from.r][from.c] = null;
+    piece.moved = true;
+
+    if (piece.type === "P" && isPromotionSquare(piece.color, to.r, to.c)) {
+      piece.type = "Q";
+      piece.promoted = true;
+      result.promoted = true;
+    }
+    return result;
   }
 
   /* ---------- Check and checkmate ---------- */
@@ -206,7 +296,7 @@
   }
 
   return {
-    SIZE, TURN_ORDER, newState, legalMoves, pseudoMoves, isInCheck, findKing,
+    SIZE, TURN_ORDER, newState, legalMoves, pseudoMoves, applyMove, isInCheck, findKing,
     hasAnyLegalMove, markDead, isVoid, inBoard, squareName,
   };
 });
