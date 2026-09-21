@@ -47,10 +47,9 @@
     return state;
   }
 
-  // Squares the piece at (r, c) can move to.
-  // For now: no check rules, no castling, no en passant, no promotion.
-  // Kings cannot be captured yet; that comes with check/checkmate.
-  function legalMoves(state, r, c) {
+  // Squares the piece at (r, c) can reach, ignoring whether its own king ends up in check.
+  // (No castling, en passant or promotion yet.)
+  function pseudoMoves(state, r, c) {
     const piece = state[r][c];
     if (!piece) return [];
     const out = [];
@@ -121,5 +120,93 @@
     }
   }
 
-  return { SIZE, TURN_ORDER, newState, legalMoves, markDead, isVoid, inBoard, squareName };
+  /* ---------- Check and checkmate ---------- */
+
+  // Does the piece at (pr, pc) attack the square (tr, tc)? Pawns attack diagonally forward,
+  // and sliding pieces are blocked by any piece (or corner) in the way.
+  function pieceAttacks(state, pr, pc, tr, tc) {
+    const p = state[pr][pc];
+    const dr = tr - pr, dc = tc - pc;
+    if (dr === 0 && dc === 0) return false;
+    switch (p.type) {
+      case "N": return KNIGHT_JUMPS.some(([a, b]) => a === dr && b === dc);
+      case "K": return Math.abs(dr) <= 1 && Math.abs(dc) <= 1;
+      case "P": {
+        const [fr, fc] = FORWARD[p.color];
+        const [qr, qc] = fr !== 0 ? [0, 1] : [1, 0];
+        return (dr === fr + qr && dc === fc + qc) || (dr === fr - qr && dc === fc - qc);
+      }
+      default: { // rook, bishop, queen
+        const straight = dr === 0 || dc === 0;
+        const diagonal = Math.abs(dr) === Math.abs(dc);
+        if (p.type === "R" && !straight) return false;
+        if (p.type === "B" && !diagonal) return false;
+        if (p.type === "Q" && !straight && !diagonal) return false;
+        const sr = Math.sign(dr), sc = Math.sign(dc);
+        let r = pr + sr, c = pc + sc;
+        while (r !== tr || c !== tc) {
+          if (!inBoard(r, c) || state[r][c]) return false;
+          r += sr;
+          c += sc;
+        }
+        return true;
+      }
+    }
+  }
+
+  // Position of a player's living king, or null
+  function findKing(state, color) {
+    for (let r = 0; r < SIZE; r++) {
+      for (let c = 0; c < SIZE; c++) {
+        const p = state[r][c];
+        if (p && p.color === color && p.type === "K" && !p.dead) return [r, c];
+      }
+    }
+    return null;
+  }
+
+  // Is this player's king attacked by any living opponent piece?
+  // (Pieces of eliminated players are dead and attack nothing.)
+  function isInCheck(state, color) {
+    const king = findKing(state, color);
+    if (!king) return false;
+    for (let r = 0; r < SIZE; r++) {
+      for (let c = 0; c < SIZE; c++) {
+        const p = state[r][c];
+        if (p && p.color !== color && !p.dead && pieceAttacks(state, r, c, king[0], king[1])) return true;
+      }
+    }
+    return false;
+  }
+
+  // Squares the piece at (r, c) can really move to: moves that would leave
+  // your own king in check are not allowed.
+  function legalMoves(state, r, c) {
+    const piece = state[r][c];
+    if (!piece || piece.dead) return [];
+    return pseudoMoves(state, r, c).filter(([nr, nc]) => {
+      const target = state[nr][nc];
+      state[nr][nc] = piece;   // try the move...
+      state[r][c] = null;
+      const safe = !isInCheck(state, piece.color);
+      state[r][c] = piece;     // ...and take it back
+      state[nr][nc] = target;
+      return safe;
+    });
+  }
+
+  function hasAnyLegalMove(state, color) {
+    for (let r = 0; r < SIZE; r++) {
+      for (let c = 0; c < SIZE; c++) {
+        const p = state[r][c];
+        if (p && p.color === color && !p.dead && legalMoves(state, r, c).length > 0) return true;
+      }
+    }
+    return false;
+  }
+
+  return {
+    SIZE, TURN_ORDER, newState, legalMoves, pseudoMoves, isInCheck, findKing,
+    hasAnyLegalMove, markDead, isVoid, inBoard, squareName,
+  };
 });

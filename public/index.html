@@ -115,6 +115,7 @@
   .yellow { color: var(--yellow); }
   .green { color: var(--green); }
   .sq.dead { color: #857f74; opacity: 0.75; }
+  .sq.incheck { background: #f4b9ae; box-shadow: inset 0 0 0 3px #d9432f; }
 
   #last { min-height: 1.4em; font-size: 14px; opacity: 0.85; text-align: center; }
   #note { min-height: 1.4em; font-size: 14px; color: #f3c98b; text-align: center; }
@@ -326,6 +327,16 @@
     const turnColor = TURN_ORDER[room.turnIndex];
     const turns = me.color ? ROTATION[me.color] : 0;
 
+    // Kings that are in check get a red highlight
+    const checkedKings = new Set();
+    let turnPlayerInCheck = false;
+    for (const c of TURN_ORDER) {
+      if (room.eliminated[c] || !Rules.isInCheck(room.state, c)) continue;
+      const king = Rules.findKing(room.state, c);
+      checkedKings.add(king[0] + "," + king[1]);
+      if (c === turnColor) turnPlayerInCheck = true;
+    }
+
     $("you").innerHTML = me.color
       ? `<span class="dot" style="background:${COLOR_HEX[me.color]}"></span>You are ${cap(me.color)}` +
         (room.eliminated[me.color] ? " (out)" : "")
@@ -338,7 +349,8 @@
     } else if (!room.started) {
       turnEl.textContent = `Waiting for players (${seatedCount()}/4)`;
     } else {
-      turnEl.textContent = `${room.names[turnColor]}'s turn` + (isMyTurn() ? " (that's you)" : "");
+      turnEl.textContent = `${room.names[turnColor]}'s turn` + (isMyTurn() ? " (that's you)" : "") +
+        (turnPlayerInCheck ? " - in check!" : "");
     }
 
     $("again").hidden = !(room.over && me.color);
@@ -374,6 +386,7 @@
           const piece = room.state[r][c];
           if (piece) {
             el.classList.add(piece.dead ? "dead" : piece.color);
+            if (checkedKings.has(r + "," + c)) el.classList.add("incheck");
             el.textContent = GLYPH[piece.type] + "\uFE0E";
           }
           if (selected && selected.r === r && selected.c === c) el.classList.add("picked");
