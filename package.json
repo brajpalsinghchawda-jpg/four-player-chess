@@ -1,0 +1,13 @@
+{
+  "name": "four-player-chess",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Real-time 4-player chess",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "socket.io": "^4.8.3"
+  }
+}
