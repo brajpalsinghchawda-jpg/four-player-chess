@@ -608,6 +608,45 @@
   @media (prefers-reduced-motion: reduce) {
     * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
   }
+
+  /* ---------- Friends / invites ---------- */
+  .social-row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .friends-btn { min-width:92px; }
+  .modal-backdrop {
+    position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,.68);
+    backdrop-filter:blur(10px); display:flex; align-items:center; justify-content:center;
+    padding:18px;
+  }
+  .friends-modal {
+    width:min(560px,100%); max-height:min(78vh,720px); overflow:auto;
+    background:linear-gradient(180deg,rgba(20,24,34,.98),rgba(10,13,20,.98));
+    border:1px solid var(--border); border-radius:22px; box-shadow:var(--shadow-lg);
+    padding:18px;
+  }
+  .modal-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
+  .modal-title { margin:0; font:700 20px var(--font-display); }
+  .modal-close { border:1px solid var(--border); background:var(--surface); color:var(--text); border-radius:10px; width:36px; height:36px; cursor:pointer; }
+  .friend-tabs { display:flex; gap:7px; margin-bottom:14px; }
+  .friend-tab { flex:1; border:1px solid var(--border); background:var(--surface); color:var(--muted); padding:9px 10px; border-radius:10px; cursor:pointer; font-weight:700; }
+  .friend-tab.active { color:var(--text); background:var(--surface-hover); border-color:rgba(255,255,255,.22); }
+  .friend-search { display:flex; gap:8px; margin-bottom:12px; }
+  .friend-search input { flex:1; min-width:0; }
+  .friend-list { display:flex; flex-direction:column; gap:8px; }
+  .friend-item { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:11px 12px; border:1px solid var(--border-soft); background:rgba(255,255,255,.035); border-radius:13px; }
+  .friend-main { min-width:0; }
+  .friend-name { font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .friend-meta { color:var(--muted-2); font-size:12px; margin-top:2px; }
+  .friend-actions { display:flex; gap:7px; flex-shrink:0; }
+  .friend-empty { color:var(--muted); text-align:center; padding:22px 10px; }
+  .friend-note { color:var(--muted); font-size:13px; min-height:18px; margin:8px 2px; }
+  .invite-badge { display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:18px; padding:0 5px; margin-left:5px; border-radius:99px; background:var(--red); color:white; font-size:11px; }
+  @media (max-width:520px) {
+    .modal-backdrop { padding:10px; align-items:flex-end; }
+    .friends-modal { max-height:86vh; border-radius:20px 20px 0 0; padding:15px; }
+    .friend-item { align-items:flex-start; }
+    .friend-actions { flex-wrap:wrap; justify-content:flex-end; }
+  }
+
 </style>
 </head>
 <body>
@@ -636,6 +675,7 @@
     </div>
     <div id="signedIn" class="row" hidden>
       <span id="whoami"></span>
+      <button id="openFriends" class="premium-button ghost small friends-btn" type="button">Friends</button>
       <button id="signOut" class="premium-button ghost small" type="button">Sign out</button>
     </div>
     <div id="authNote"></div>
@@ -714,6 +754,7 @@
 
     <div class="controls-row">
       <span id="you" class="you-chip"></span>
+      <button id="inviteFriend" class="premium-button primary small" type="button">Invite Friend</button>
       <button id="invite" class="premium-button ghost small" type="button">Copy invite link</button>
       <button id="resign" class="premium-button ghost small danger" type="button" hidden>Resign</button>
       <button id="again" class="premium-button primary small" type="button" hidden>Play again</button>
@@ -724,6 +765,30 @@
   <div id="toasts" class="toast-stack"></div>
   <div id="note" class="note-banner"></div>
   <div id="overlay" class="overlay" hidden></div>
+
+  <div id="friendsModal" class="modal-backdrop" hidden>
+    <section class="friends-modal" role="dialog" aria-modal="true" aria-labelledby="friendsTitle">
+      <div class="modal-head">
+        <h2 id="friendsTitle" class="modal-title">Friends</h2>
+        <button id="friendsClose" class="modal-close" type="button" aria-label="Close">✕</button>
+      </div>
+      <div class="friend-tabs">
+        <button class="friend-tab active" data-friend-tab="friends" type="button">Friends</button>
+        <button class="friend-tab" data-friend-tab="requests" type="button">Requests <span id="requestBadge" class="invite-badge" hidden>0</span></button>
+        <button class="friend-tab" data-friend-tab="search" type="button">Add Friend</button>
+      </div>
+      <div id="friendSearchPane" hidden>
+        <div class="friend-search">
+          <input id="friendSearchInput" placeholder="Search username" maxlength="20" autocomplete="off">
+          <button id="friendSearchBtn" class="premium-button small" type="button">Search</button>
+        </div>
+        <div id="friendSearchResults" class="friend-list"></div>
+      </div>
+      <div id="friendRequestsPane" hidden><div id="friendRequests" class="friend-list"></div></div>
+      <div id="friendsListPane"><div id="friendsList" class="friend-list"></div></div>
+      <div id="friendsNote" class="friend-note"></div>
+    </section>
+  </div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script src="rules.js"></script>
@@ -986,10 +1051,200 @@
     await refreshAccountUI();
   });
 
-  sb.auth.onAuthStateChange(() => refreshAccountUI());
+  sb.auth.onAuthStateChange(() => {
+    setTimeout(async () => { await refreshAccountUI(); await setupInviteRealtime(); }, 0);
+  });
   // Clears any sign-in link tokens from the URL (if we just arrived from the emailed link),
   // then updates the account panel either way.
-  handleAuthRedirect().then(refreshAccountUI);
+  handleAuthRedirect().then(async () => { await refreshAccountUI(); await setupInviteRealtime(); });
+
+
+  /* ---------- Friends + direct game invites ---------- */
+  let friendTab = "friends";
+  let friendsCache = [];
+  let friendRequestsCache = [];
+  let inviteChannel = null;
+
+  function currentUserId() {
+    return profile && profile.id ? profile.id : null;
+  }
+
+  function requireSignedIn() {
+    if (!currentUserId()) {
+      toast("Sign in with Google first.", "danger");
+      return false;
+    }
+    return true;
+  }
+
+  function friendEsc(text) {
+    return String(text || "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[ch]));
+  }
+
+  function setFriendNote(msg, bad=false) {
+    $("friendsNote").textContent = msg || "";
+    $("friendsNote").style.color = bad ? "var(--red)" : "";
+  }
+
+  function openFriends(tab="friends") {
+    if (!requireSignedIn()) return;
+    $("friendsModal").hidden = false;
+    setFriendTab(tab);
+    loadFriendsData();
+  }
+
+  function closeFriends() { $("friendsModal").hidden = true; }
+
+  function setFriendTab(tab) {
+    friendTab = tab;
+    document.querySelectorAll("[data-friend-tab]").forEach(b => b.classList.toggle("active", b.dataset.friendTab === tab));
+    $("friendsListPane").hidden = tab !== "friends";
+    $("friendRequestsPane").hidden = tab !== "requests";
+    $("friendSearchPane").hidden = tab !== "search";
+    setFriendNote("");
+  }
+
+  async function loadFriendsData() {
+    const uid = currentUserId();
+    if (!uid) return;
+    setFriendNote("Loading...");
+    const { data, error } = await sb.from("friendships")
+      .select("id, requester_id, addressee_id, status, created_at")
+      .or(`requester_id.eq.${uid},addressee_id.eq.${uid}`)
+      .order("created_at", { ascending:false });
+    if (error) { setFriendNote(error.message, true); return; }
+    const rows = data || [];
+    const friendIds = rows.filter(r => r.status === "accepted").map(r => r.requester_id === uid ? r.addressee_id : r.requester_id);
+    const requestRows = rows.filter(r => r.status === "pending" && r.addressee_id === uid);
+    const sentRows = rows.filter(r => r.status === "pending" && r.requester_id === uid);
+    let profiles = [];
+    if (friendIds.length || requestRows.length || sentRows.length) {
+      const ids = [...new Set([...friendIds, ...requestRows.map(r=>r.requester_id), ...sentRows.map(r=>r.addressee_id)])];
+      const result = await sb.from("profiles").select("id, username").in("id", ids);
+      if (result.error) { setFriendNote(result.error.message, true); return; }
+      profiles = result.data || [];
+    }
+    const byId = Object.fromEntries(profiles.map(p => [p.id, p]));
+    friendsCache = friendIds.map(id => ({ ...byId[id], id })).filter(x => x.username);
+    friendRequestsCache = requestRows.map(r => ({ ...r, profile: byId[r.requester_id] })).filter(x => x.profile);
+    const pendingSent = sentRows.map(r => ({ ...r, profile: byId[r.addressee_id] })).filter(x => x.profile);
+    renderFriendsList();
+    renderFriendRequests(pendingSent);
+    $("requestBadge").hidden = friendRequestsCache.length === 0;
+    $("requestBadge").textContent = String(friendRequestsCache.length);
+    setFriendNote("");
+  }
+
+  function renderFriendsList() {
+    const el = $("friendsList");
+    if (!friendsCache.length) { el.innerHTML = '<div class="friend-empty">No friends yet. Open <b>Add Friend</b> to find someone.</div>'; return; }
+    el.innerHTML = friendsCache.map(f => `
+      <div class="friend-item">
+        <div class="friend-main"><div class="friend-name">${friendEsc(f.username)}</div><div class="friend-meta">Friend</div></div>
+        <div class="friend-actions"><button class="premium-button primary small invite-friend-btn" data-id="${friendEsc(f.id)}" type="button">Invite</button></div>
+      </div>`).join("");
+  }
+
+  function renderFriendRequests(sentRows=[]) {
+    const el = $("friendRequests");
+    const incoming = friendRequestsCache.map(r => `
+      <div class="friend-item">
+        <div class="friend-main"><div class="friend-name">${friendEsc(r.profile.username)}</div><div class="friend-meta">Wants to be your friend</div></div>
+        <div class="friend-actions"><button class="premium-button primary small accept-friend-btn" data-id="${r.id}" type="button">Accept</button><button class="premium-button ghost small reject-friend-btn" data-id="${r.id}" type="button">Decline</button></div>
+      </div>`).join("");
+    const outgoing = sentRows.map(r => `
+      <div class="friend-item"><div class="friend-main"><div class="friend-name">${friendEsc(r.profile.username)}</div><div class="friend-meta">Request sent</div></div></div>`).join("");
+    el.innerHTML = incoming + outgoing || '<div class="friend-empty">No pending requests.</div>';
+  }
+
+  async function searchFriends() {
+    if (!requireSignedIn()) return;
+    const q = $("friendSearchInput").value.trim();
+    const el = $("friendSearchResults");
+    if (!q) { el.innerHTML = '<div class="friend-empty">Enter a username.</div>'; return; }
+    const uid = currentUserId();
+    el.innerHTML = '<div class="friend-empty">Searching...</div>';
+    const { data, error } = await sb.from("profiles").select("id, username").ilike("username", `%${q}%`).neq("id", uid).limit(10);
+    if (error) { el.innerHTML = `<div class="friend-empty">${friendEsc(error.message)}</div>`; return; }
+    if (!data?.length) { el.innerHTML = '<div class="friend-empty">No user found.</div>'; return; }
+    el.innerHTML = data.map(u => `
+      <div class="friend-item"><div class="friend-main"><div class="friend-name">${friendEsc(u.username)}</div><div class="friend-meta">Chess player</div></div>
+      <div class="friend-actions"><button class="premium-button primary small add-friend-btn" data-id="${friendEsc(u.id)}" data-name="${friendEsc(u.username)}" type="button">Add</button></div></div>`).join("");
+  }
+
+  async function addFriend(addresseeId, name) {
+    const uid = currentUserId();
+    if (!uid || uid === addresseeId) return;
+    const { data: existing, error: checkError } = await sb.from("friendships").select("id, status, requester_id, addressee_id").or(`and(requester_id.eq.${uid},addressee_id.eq.${addresseeId}),and(requester_id.eq.${addresseeId},addressee_id.eq.${uid})`).limit(1);
+    if (checkError) { setFriendNote(checkError.message, true); return; }
+    if (existing?.length) {
+      const row = existing[0];
+      if (row.status === "accepted") setFriendNote(`${name} is already your friend.`);
+      else if (row.requester_id === uid) setFriendNote(`Request already sent to ${name}.`);
+      else setFriendNote(`${name} already sent you a request. Open Requests.`);
+      return;
+    }
+    const { error } = await sb.from("friendships").insert({ requester_id: uid, addressee_id: addresseeId, status:"pending" });
+    if (error) { setFriendNote(error.message, true); return; }
+    setFriendNote(`Friend request sent to ${name}.`);
+    searchFriends();
+  }
+
+  async function updateFriendRequest(id, status) {
+    const { error } = await sb.from("friendships").update({ status }).eq("id", id);
+    if (error) { setFriendNote(error.message, true); return; }
+    await loadFriendsData();
+  }
+
+  async function inviteFriend(friendId) {
+    if (!requireSignedIn()) return;
+    if (!me.code) { setFriendNote("Create or join a game first."); return; }
+    const { data: friend, error: friendError } = await sb.from("friendships")
+      .select("id").eq("status","accepted")
+      .or(`and(requester_id.eq.${currentUserId()},addressee_id.eq.${friendId}),and(requester_id.eq.${friendId},addressee_id.eq.${currentUserId()})`).limit(1);
+    if (friendError || !friend?.length) { setFriendNote("You can only invite friends.", true); return; }
+    const { error } = await sb.from("game_invites").insert({ inviter_id: currentUserId(), invitee_id: friendId, room_code: me.code });
+    if (error) { setFriendNote(error.message, true); return; }
+    toast("Invite sent ✓");
+    closeFriends();
+  }
+
+  async function setupInviteRealtime() {
+    if (inviteChannel) { await sb.removeChannel(inviteChannel); inviteChannel = null; }
+    const uid = currentUserId();
+    if (!uid) return;
+    inviteChannel = sb.channel("game-invites-" + uid)
+      .on("postgres_changes", { event:"INSERT", schema:"public", table:"game_invites", filter:`invitee_id=eq.${uid}` }, async payload => {
+        const inv = payload.new;
+        const { data: p } = await sb.from("profiles").select("username").eq("id", inv.inviter_id).maybeSingle();
+        showIncomingInvite(inv, p?.username || "A friend");
+      })
+      .subscribe();
+  }
+
+  function showIncomingInvite(inv, inviterName) {
+    const ok = confirm(`${inviterName} invited you to a 4-player chess game.\n\nJoin room ${inv.room_code}?`);
+    if (!ok) return;
+    $("code").value = inv.room_code;
+    join(inv.room_code);
+    sb.from("game_invites").update({ status:"accepted" }).eq("id", inv.id).then(()=>{});
+  }
+
+  $("openFriends").addEventListener("click", () => openFriends("friends"));
+  $("inviteFriend").addEventListener("click", () => openFriends("friends"));
+  $("friendsClose").addEventListener("click", closeFriends);
+  $("friendsModal").addEventListener("click", e => { if (e.target === $("friendsModal")) closeFriends(); });
+  document.querySelectorAll("[data-friend-tab]").forEach(btn => btn.addEventListener("click", () => setFriendTab(btn.dataset.friendTab)));
+  $("friendSearchBtn").addEventListener("click", searchFriends);
+  $("friendSearchInput").addEventListener("keydown", e => { if (e.key === "Enter") searchFriends(); });
+  $("friendsList").addEventListener("click", e => { const b=e.target.closest(".invite-friend-btn"); if(b) inviteFriend(b.dataset.id); });
+  $("friendRequests").addEventListener("click", e => {
+    const accept=e.target.closest(".accept-friend-btn");
+    const reject=e.target.closest(".reject-friend-btn");
+    if (accept) updateFriendRequest(accept.dataset.id, "accepted");
+    if (reject) updateFriendRequest(reject.dataset.id, "rejected");
+  });
+  $("friendSearchResults").addEventListener("click", e => { const b=e.target.closest(".add-friend-btn"); if(b) addFriend(b.dataset.id, b.dataset.name); });
 
   const socket = io();
   let me = { code: null, color: null };
