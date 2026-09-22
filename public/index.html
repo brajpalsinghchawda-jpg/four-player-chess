@@ -722,7 +722,9 @@
   <div id="note" class="note-banner"></div>
   <div id="overlay" class="overlay" hidden></div>
 
-<script src="/socket.io/socket.io.js">  function render() {
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  function render() {
     if (!room) return;
     const turnColor = TURN_ORDER[room.turnIndex];
     const turns = me.color ? ROTATION[me.color] : 0;
