@@ -625,7 +625,12 @@
   <section id="account" class="glass-panel account-panel">
     <div id="signedOut" class="row">
       <input id="email" type="email" placeholder="Email" autocomplete="email">
-      <button id="sendCode" class="premium-button ghost small" type="button">Sign in</button>
+      <button id="sendCode" class="premium-button ghost small" type="button">Send code</button>
+    </div>
+    <div id="otpRow" class="row" hidden>
+      <input id="otp" type="text" inputmode="numeric" autocomplete="one-time-code"
+             placeholder="6-digit code" maxlength="6" pattern="[0-9]{6}">
+      <button id="verifyCode" class="premium-button small" type="button">Verify code</button>
     </div>
     <div id="pickUsername" class="row" hidden>
       <input id="username" placeholder="Choose a username" maxlength="20" autocomplete="off">
@@ -1038,17 +1043,73 @@
     return false;
   }
 
+  let pendingAuthEmail = "";
+
   $("sendCode").addEventListener("click", async () => {
     const email = $("email").value.trim();
-    if (!email) return;
+    if (!email) {
+      $("authNote").textContent = "Enter your email address first.";
+      return;
+    }
+
     $("sendCode").disabled = true;
+    $("authNote").textContent = "Sending verification code...";
+
     const { error } = await sb.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: location.origin + location.pathname },
+      options: { shouldCreateUser: true },
     });
+
     $("sendCode").disabled = false;
-    if (error) { $("authNote").textContent = error.message; return; }
-    $("authNote").textContent = "Check your email and open the sign-in link on this device.";
+
+    if (error) {
+      $("authNote").textContent = error.message;
+      return;
+    }
+
+    pendingAuthEmail = email;
+    $("otpRow").hidden = false;
+    $("otp").value = "";
+    $("otp").focus();
+    $("authNote").textContent = "Check your email for the 6-digit code.";
+  });
+
+  $("verifyCode").addEventListener("click", async () => {
+    const token = $("otp").value.trim().replace(/\D/g, "");
+    if (!pendingAuthEmail) {
+      $("authNote").textContent = "Please request a new code first.";
+      return;
+    }
+    if (!/^\d{6}$/.test(token)) {
+      $("authNote").textContent = "Enter the 6-digit code from your email.";
+      return;
+    }
+
+    $("verifyCode").disabled = true;
+    $("authNote").textContent = "Verifying code...";
+
+    const { error } = await sb.auth.verifyOtp({
+      email: pendingAuthEmail,
+      token,
+      type: "email",
+    });
+
+    $("verifyCode").disabled = false;
+
+    if (error) {
+      $("authNote").textContent = error.message;
+      return;
+    }
+
+    $("otpRow").hidden = true;
+    $("otp").value = "";
+    $("authNote").textContent = "Signed in successfully.";
+    pendingAuthEmail = "";
+    await refreshAccountUI();
+  });
+
+  $("otp").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") $("verifyCode").click();
   });
 
   $("saveUsername").addEventListener("click", async () => {
@@ -1070,13 +1131,15 @@
   $("signOut").addEventListener("click", async () => {
     await sb.auth.signOut();
     $("name").value = "";
+    pendingAuthEmail = "";
+    $("otpRow").hidden = true;
+    $("otp").value = "";
+    $("authNote").textContent = "";
     await refreshAccountUI();
   });
 
   sb.auth.onAuthStateChange(() => refreshAccountUI());
-  // Clears any sign-in link tokens from the URL (if we just arrived from the emailed link),
-  // then updates the account panel either way.
-  handleAuthRedirect().then(refreshAccountUI);
+  refreshAccountUI();
 
   const socket = io();
   let me = { code: null, color: null };
