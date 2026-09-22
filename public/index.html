@@ -159,6 +159,7 @@
       </div>
       <div class="line">
         <button id="invite" class="ghost" type="button">Copy invite link</button>
+        <button id="resign" class="ghost" type="button" hidden>Resign</button>
         <button id="again" type="button" hidden>Play again</button>
       </div>
       <div id="seats"></div>
@@ -249,6 +250,9 @@
   }));
   $("join").addEventListener("click", () => join($("code").value));
   $("again").addEventListener("click", () => socket.emit("rematch"));
+  $("resign").addEventListener("click", () => {
+    if (confirm("Resign this game? Your pieces will be taken out of play.")) socket.emit("resign");
+  });
   $("invite").addEventListener("click", async () => {
     try {
       await navigator.clipboard.writeText(location.href);
@@ -354,6 +358,7 @@
     }
 
     $("again").hidden = !(room.over && me.color);
+    $("resign").hidden = !(room.started && !room.over && me.color && !room.eliminated[me.color]);
 
     $("seats").innerHTML = TURN_ORDER.map((c) => {
       const name = room.seats[c];
