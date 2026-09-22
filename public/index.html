@@ -131,10 +131,6 @@
       <input id="email" type="email" placeholder="Email" autocomplete="email">
       <button id="sendCode" class="ghost" type="button">Sign in</button>
     </div>
-    <div id="codeRow" class="row" hidden>
-      <input id="otp" placeholder="6-digit code" maxlength="6" autocomplete="one-time-code" inputmode="numeric">
-      <button id="verifyCode" type="button">Verify</button>
-    </div>
     <div id="pickUsername" class="row" hidden>
       <input id="username" placeholder="Choose a username" maxlength="20" autocomplete="off">
       <button id="saveUsername" type="button">Save</button>
@@ -217,7 +213,7 @@
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
   const $ = (id) => document.getElementById(id);
 
-  /* ---------- Account: sign in with email, then pick a username ---------- */
+  /* ---------- Account: sign in with an emailed link, then pick a username ---------- */
   const SUPABASE_URL = "https://wiqtusnrtxkukecfqrxd.supabase.co";
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndpcXR1c25ydHhrdWtlY2ZxcnhkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwNTI5MTcsImV4cCI6MjEwNTYyODkxN30.L2t_m-g0sBBLgS1NF1E1qvcagKQn8x-zJlgHT-SludE";
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -233,7 +229,6 @@
     if (!session) {
       profile = null;
       $("signedOut").hidden = false;
-      $("codeRow").hidden = true;
       $("pickUsername").hidden = true;
       $("signedIn").hidden = true;
       $("name").disabled = false;
@@ -241,7 +236,6 @@
     }
     const username = await loadUsername(session.user.id);
     $("signedOut").hidden = true;
-    $("codeRow").hidden = true;
     if (!username) {
       profile = null;
       $("pickUsername").hidden = false;
@@ -257,26 +251,38 @@
     }
   }
 
+  // Reads the tokens Supabase appends to the URL after the person clicks the emailed
+  // link, and turns them into a signed-in session. Handles both formats Supabase may use.
+  async function handleAuthRedirect() {
+    const hash = location.hash; // e.g. "#access_token=...&refresh_token=...&..."
+    if (hash.includes("access_token=")) {
+      const params = new URLSearchParams(hash.slice(1));
+      const access_token = params.get("access_token");
+      const refresh_token = params.get("refresh_token");
+      history.replaceState(null, "", location.pathname + location.search); // scrub the tokens from the URL
+      if (access_token && refresh_token) await sb.auth.setSession({ access_token, refresh_token });
+      return true;
+    }
+    if (new URLSearchParams(location.search).has("code")) {
+      const href = location.href;
+      history.replaceState(null, "", location.pathname); // scrub ?code=... from the URL
+      await sb.auth.exchangeCodeForSession(href);
+      return true;
+    }
+    return false;
+  }
+
   $("sendCode").addEventListener("click", async () => {
     const email = $("email").value.trim();
     if (!email) return;
     $("sendCode").disabled = true;
-    const { error } = await sb.auth.signInWithOtp({ email });
+    const { error } = await sb.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: location.origin + location.pathname },
+    });
     $("sendCode").disabled = false;
     if (error) { $("authNote").textContent = error.message; return; }
-    $("codeRow").hidden = false;
-    $("authNote").textContent = "Check your email for a 6-digit code.";
-  });
-
-  $("verifyCode").addEventListener("click", async () => {
-    const email = $("email").value.trim();
-    const token = $("otp").value.trim();
-    if (!email || !token) return;
-    const { error } = await sb.auth.verifyOtp({ email, token, type: "email" });
-    if (error) { $("authNote").textContent = error.message; return; }
-    $("authNote").textContent = "";
-    $("otp").value = "";
-    await refreshAccountUI();
+    $("authNote").textContent = "Check your email and open the sign-in link on this device.";
   });
 
   $("saveUsername").addEventListener("click", async () => {
@@ -302,7 +308,9 @@
   });
 
   sb.auth.onAuthStateChange(() => refreshAccountUI());
-  refreshAccountUI();
+  // Clears any sign-in link tokens from the URL (if we just arrived from the emailed link),
+  // then updates the account panel either way.
+  handleAuthRedirect().then(refreshAccountUI);
 
   const socket = io();
   let me = { code: null, color: null };
