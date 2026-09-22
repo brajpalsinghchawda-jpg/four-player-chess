@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -619,6 +620,197 @@
   @media (prefers-reduced-motion: reduce) {
     * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
   }
+
+
+  /* ================================================================
+     PREMIUM UI V2 — Step 1 visual polish
+     IMPORTANT: no chess rules, socket events, auth flow, or board logic changed.
+     ================================================================ */
+  body {
+    background:
+      radial-gradient(900px 520px at 50% -12%, rgba(245,179,1,.10), transparent 64%),
+      radial-gradient(720px 520px at -8% 48%, rgba(59,130,246,.065), transparent 68%),
+      radial-gradient(720px 520px at 108% 54%, rgba(239,68,68,.055), transparent 68%),
+      linear-gradient(180deg, #07090e 0%, #0a0d14 55%, #07090e 100%);
+    gap: 18px;
+  }
+  .brand { margin-top: 30px; gap: 4px; }
+  .brand-mark {
+    padding: 7px 14px;
+    border: 1px solid rgba(245,179,1,.22);
+    border-radius: 999px;
+    background: linear-gradient(135deg, rgba(245,179,1,.10), rgba(255,255,255,.035));
+    box-shadow: 0 8px 30px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.08);
+  }
+  .brand-pawn { font-size: 20px; filter: drop-shadow(0 0 9px rgba(245,179,1,.35)); }
+  .brand h1 {
+    font-size: clamp(27px, 5.5vw, 39px);
+    letter-spacing: -.015em;
+    background: linear-gradient(180deg, #fff, #c9ced9 75%, #9da5b5);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .brand .tagline { color: #8d97aa; font-size: 13px; }
+
+  .account-panel {
+    max-width: 560px;
+    border-color: rgba(255,255,255,.10);
+    background: linear-gradient(135deg, rgba(255,255,255,.065), rgba(255,255,255,.025));
+    box-shadow: 0 18px 50px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.045);
+  }
+  #googleSignIn {
+    background: linear-gradient(135deg, rgba(255,255,255,.11), rgba(255,255,255,.045));
+    border-color: rgba(255,255,255,.14) !important;
+  }
+
+  .lobby-wrap {
+    max-width: 980px;
+    gap: 18px;
+    align-items: stretch;
+  }
+  .lobby-head {
+    width: 100%;
+    flex: 0 0 100%;
+    text-align: center;
+    padding: 2px 10px 8px;
+  }
+  .lobby-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 10px;
+    border: 1px solid rgba(245,179,1,.18);
+    border-radius: 999px;
+    color: #d9b957;
+    background: rgba(245,179,1,.055);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+  }
+  .lobby-eyebrow::before {
+    content: "";
+    width: 6px; height: 6px; border-radius: 50%;
+    background: #22c55e; box-shadow: 0 0 10px #22c55e;
+  }
+  .lobby-head h2 { margin: 12px 0 4px; font-size: clamp(23px, 4vw, 30px); letter-spacing: -.02em; }
+  .lobby-head p { margin: 0; color: var(--muted); font-size: 13px; }
+  .lobby-card {
+    min-height: 330px;
+    padding: 25px;
+    gap: 17px;
+    border-color: rgba(255,255,255,.105);
+    background: linear-gradient(145deg, rgba(255,255,255,.072), rgba(255,255,255,.025));
+    box-shadow: 0 22px 55px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.055);
+  }
+  .lobby-card:hover {
+    border-color: rgba(245,179,1,.24);
+    box-shadow: 0 28px 70px rgba(0,0,0,.40), 0 0 45px rgba(245,179,1,.035), inset 0 1px 0 rgba(255,255,255,.07);
+  }
+  .card-title { font-size: 19px; }
+  .card-title::after {
+    content: ""; display: block; width: 34px; height: 2px; margin-top: 9px;
+    border-radius: 99px; background: linear-gradient(90deg, #f5b301, transparent);
+  }
+  .premium-button.primary {
+    background: linear-gradient(135deg, #ffe39a 0%, #f5b301 48%, #d58f00 100%);
+    color: #151006;
+    box-shadow: 0 12px 30px rgba(245,179,1,.18), inset 0 1px 0 rgba(255,255,255,.35);
+  }
+  .premium-button.primary:hover { box-shadow: 0 16px 38px rgba(245,179,1,.25), 0 0 24px rgba(245,179,1,.10); }
+  .field label { color: #8f99ab; }
+  input, select { min-height: 44px; background: rgba(5,7,12,.34); border-color: rgba(255,255,255,.10); }
+  input:focus, select:focus { border-color: rgba(245,179,1,.48); box-shadow: 0 0 0 4px rgba(245,179,1,.07), 0 8px 22px rgba(0,0,0,.18); }
+  .segmented { background: rgba(0,0,0,.20); }
+  .seg-btn.active { background: linear-gradient(135deg, rgba(245,179,1,.20), rgba(255,255,255,.07)); color: #ffe8a9; border: 1px solid rgba(245,179,1,.18); }
+
+  /* Game identity header */
+  .arena-wrap { max-width: 1120px; gap: 13px; }
+  .room-banner {
+    width: min(100%, 1080px);
+    padding: 12px 15px;
+    border-color: rgba(255,255,255,.11);
+    background: linear-gradient(135deg, rgba(255,255,255,.075), rgba(255,255,255,.025));
+    box-shadow: 0 18px 48px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.05);
+  }
+  .room-banner > div:first-child { display:flex; align-items:center; gap:12px; }
+  .room-banner > div:first-child::before {
+    content:"♛";
+    width:38px; height:38px; flex:none; display:flex; align-items:center; justify-content:center;
+    border-radius:12px; font-size:19px;
+    background:linear-gradient(145deg, rgba(245,179,1,.22), rgba(245,179,1,.05));
+    border:1px solid rgba(245,179,1,.22);
+  }
+  .room-code-label { color:#8d97aa; }
+  .room-code { font-size:21px; text-shadow:0 0 20px rgba(245,179,1,.08); }
+  #roomStatus {
+    padding:6px 11px;
+    border-radius:999px;
+    border:1px solid rgba(255,255,255,.08);
+    background:rgba(255,255,255,.035);
+    color:#aeb7c7;
+    font-size:10px;
+    font-weight:800;
+    letter-spacing:.10em;
+    text-transform:uppercase;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.04);
+  }
+  #roomStatus::before { content:""; display:inline-block; width:6px; height:6px; border-radius:50%; background:#f5b301; box-shadow:0 0 9px #f5b301; margin-right:7px; vertical-align:1px; }
+  .turn-banner {
+    width:min(100%,760px);
+    min-height:32px;
+    display:flex; align-items:center; justify-content:center;
+    padding:7px 14px;
+    border-radius:999px;
+    background:rgba(255,255,255,.025);
+    border:1px solid rgba(255,255,255,.055);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.025);
+  }
+
+  /* Player HUD */
+  .player-card {
+    overflow:hidden;
+    border-color:rgba(255,255,255,.10);
+    background:linear-gradient(145deg, rgba(255,255,255,.075), rgba(255,255,255,.025));
+    box-shadow:0 14px 34px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.045);
+    padding:11px 13px 10px;
+  }
+  .player-card::after { content:""; position:absolute; left:0; right:0; top:0; height:2px; background:var(--pc); opacity:.45; }
+  .player-card.active {
+    box-shadow:0 0 0 1px var(--pc) inset, 0 16px 38px -10px var(--pc), inset 0 1px 0 rgba(255,255,255,.08);
+    background:linear-gradient(145deg, color-mix(in srgb, var(--pc) 13%, rgba(255,255,255,.06)), rgba(255,255,255,.025));
+  }
+  .player-card .pc-clock { font-size:22px; margin-top:5px; }
+  .player-card .pc-badge { border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.045); }
+
+  /* Board = visual hero */
+  .board-frame {
+    padding:16px;
+    border-radius:28px;
+    background:linear-gradient(145deg, rgba(255,255,255,.095), rgba(255,255,255,.018)) padding-box,
+               linear-gradient(145deg, rgba(255,255,255,.22), rgba(245,179,1,.12), rgba(255,255,255,.035)) border-box;
+    border:1px solid transparent;
+    box-shadow:0 30px 90px rgba(0,0,0,.52), 0 0 60px rgba(245,179,1,.035), inset 0 1px 0 rgba(255,255,255,.08);
+  }
+  .board-frame::after { content:""; position:absolute; inset:7px; border-radius:21px; border:1px solid rgba(255,255,255,.055); pointer-events:none; }
+  #board { border-radius:14px; box-shadow:0 0 0 1px rgba(0,0,0,.62), 0 18px 40px rgba(0,0,0,.30), inset 0 0 45px rgba(0,0,0,.30); }
+  .sq.light { background:linear-gradient(145deg, #e5dfd0, #d4cebf); }
+  .sq.dark { background:linear-gradient(145deg, #817b6d, #706b60); }
+  .sq.picked { background:#f0dc7a; box-shadow:inset 0 0 0 3px rgba(255,255,255,.92), inset 0 0 20px rgba(245,179,1,.28); }
+  .controls-row { padding:7px 10px; border:1px solid rgba(255,255,255,.07); border-radius:999px; background:rgba(255,255,255,.025); box-shadow:0 12px 30px rgba(0,0,0,.20); }
+
+  @media (max-width:760px) {
+    .lobby-wrap { flex-direction:column; max-width:560px; gap:12px; }
+    .lobby-head { flex-basis:auto; }
+    .lobby-card { min-height:0; }
+    .or-divider::before, .or-divider::after { width:45px; height:1px; }
+    .room-banner { border-radius:18px; }
+    .board-frame { padding:10px; border-radius:20px; }
+    .board-frame::after { inset:5px; border-radius:15px; }
+    .controls-row { max-width:100%; border-radius:18px; }
+  }
+
 </style>
 </head>
 <body>
@@ -653,6 +845,11 @@
   </section>
 
   <section id="lobby" class="lobby-wrap">
+    <div class="lobby-head entrance">
+      <div class="lobby-eyebrow">Live multiplayer arena</div>
+      <h2>Play with friends. Own the board.</h2>
+      <p>Create a private room or join your friends with a 6-character code.</p>
+    </div>
     <div class="glass-panel lobby-card entrance">
       <h2 class="card-title">Create a match</h2>
       <div class="field">
