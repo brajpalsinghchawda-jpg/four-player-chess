@@ -57,6 +57,10 @@
   #lobby { display: flex; flex-direction: column; align-items: center; gap: 14px; }
   #lobby .row { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
   #lobby label { display: flex; align-items: center; gap: 8px; font-size: 15px; }
+  #account { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  #account input { width: 12em; }
+  #whoami { font-size: 15px; }
+  #authNote { min-height: 1.3em; font-size: 13px; color: #f3c98b; text-align: center; }
   #game { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; }
 
   #info { display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 16px; }
@@ -122,6 +126,26 @@
 </style>
 </head>
 <body>
+  <section id="account">
+    <div id="signedOut" class="row">
+      <input id="email" type="email" placeholder="Email" autocomplete="email">
+      <button id="sendCode" class="ghost" type="button">Sign in</button>
+    </div>
+    <div id="codeRow" class="row" hidden>
+      <input id="otp" placeholder="6-digit code" maxlength="6" autocomplete="one-time-code" inputmode="numeric">
+      <button id="verifyCode" type="button">Verify</button>
+    </div>
+    <div id="pickUsername" class="row" hidden>
+      <input id="username" placeholder="Choose a username" maxlength="20" autocomplete="off">
+      <button id="saveUsername" type="button">Save</button>
+    </div>
+    <div id="signedIn" class="row" hidden>
+      <span id="whoami"></span>
+      <button id="signOut" class="ghost" type="button">Sign out</button>
+    </div>
+    <div id="authNote"></div>
+  </section>
+
   <section id="lobby">
     <h1>4-Player Chess</h1>
     <input id="name" placeholder="Your name" maxlength="16" autocomplete="off">
@@ -180,6 +204,7 @@
 
 <script src="/socket.io/socket.io.js"></script>
 <script src="rules.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
   const { TURN_ORDER, SIZE } = Rules;
   const GLYPH = { R: "♜", N: "♞", B: "♝", Q: "♛", K: "♚", P: "♟" };
@@ -192,6 +217,93 @@
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
   const $ = (id) => document.getElementById(id);
 
+  /* ---------- Account: sign in with email, then pick a username ---------- */
+  const SUPABASE_URL = "https://wiqtusnrtxkukecfqrxd.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndpcXR1c25ydHhrdWtlY2ZxcnhkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwNTI5MTcsImV4cCI6MjEwNTYyODkxN30.L2t_m-g0sBBLgS1NF1E1qvcagKQn8x-zJlgHT-SludE";
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  let profile = null; // { id, username } once signed in AND a username is set
+
+  async function loadUsername(userId) {
+    const { data } = await sb.from("profiles").select("username").eq("id", userId).maybeSingle();
+    return data ? data.username : null;
+  }
+
+  async function refreshAccountUI() {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) {
+      profile = null;
+      $("signedOut").hidden = false;
+      $("codeRow").hidden = true;
+      $("pickUsername").hidden = true;
+      $("signedIn").hidden = true;
+      $("name").disabled = false;
+      return;
+    }
+    const username = await loadUsername(session.user.id);
+    $("signedOut").hidden = true;
+    $("codeRow").hidden = true;
+    if (!username) {
+      profile = null;
+      $("pickUsername").hidden = false;
+      $("signedIn").hidden = true;
+      $("name").disabled = false;
+    } else {
+      profile = { id: session.user.id, username };
+      $("pickUsername").hidden = true;
+      $("signedIn").hidden = false;
+      $("whoami").textContent = "Playing as " + username;
+      $("name").value = username;
+      $("name").disabled = true;
+    }
+  }
+
+  $("sendCode").addEventListener("click", async () => {
+    const email = $("email").value.trim();
+    if (!email) return;
+    $("sendCode").disabled = true;
+    const { error } = await sb.auth.signInWithOtp({ email });
+    $("sendCode").disabled = false;
+    if (error) { $("authNote").textContent = error.message; return; }
+    $("codeRow").hidden = false;
+    $("authNote").textContent = "Check your email for a 6-digit code.";
+  });
+
+  $("verifyCode").addEventListener("click", async () => {
+    const email = $("email").value.trim();
+    const token = $("otp").value.trim();
+    if (!email || !token) return;
+    const { error } = await sb.auth.verifyOtp({ email, token, type: "email" });
+    if (error) { $("authNote").textContent = error.message; return; }
+    $("authNote").textContent = "";
+    $("otp").value = "";
+    await refreshAccountUI();
+  });
+
+  $("saveUsername").addEventListener("click", async () => {
+    const username = $("username").value.trim().slice(0, 20);
+    if (!username) return;
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) return;
+    $("saveUsername").disabled = true;
+    const { error } = await sb.from("profiles").insert({ id: session.user.id, username });
+    $("saveUsername").disabled = false;
+    if (error) {
+      $("authNote").textContent = error.code === "23505" ? "That username is taken." : error.message;
+      return;
+    }
+    $("authNote").textContent = "";
+    await refreshAccountUI();
+  });
+
+  $("signOut").addEventListener("click", async () => {
+    await sb.auth.signOut();
+    $("name").value = "";
+    await refreshAccountUI();
+  });
+
+  sb.auth.onAuthStateChange(() => refreshAccountUI());
+  refreshAccountUI();
+
   const socket = io();
   let me = { code: null, color: null };
   let room = null;         // latest game state from the server
@@ -203,6 +315,7 @@
   try { $("name").value = localStorage.getItem("chess-name") || ""; } catch (e) {}
 
   function myName() {
+    if (profile) return profile.username;
     const name = $("name").value.trim().slice(0, 16);
     try { localStorage.setItem("chess-name", name); } catch (e) {}
     return name;
@@ -239,6 +352,7 @@
     sessionStorage.setItem("seat-" + code, color || "");
     location.hash = code;
     $("note").textContent = "";
+    $("account").hidden = true;
     $("lobby").hidden = true;
     $("game").hidden = false;
   });
