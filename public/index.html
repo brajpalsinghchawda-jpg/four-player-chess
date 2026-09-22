@@ -722,7 +722,90 @@
   <div id="note" class="note-banner"></div>
   <div id="overlay" class="overlay" hidden></div>
 
-<script src="/socket.io/socket.io.js"></script>
+<script src="/socket.io/socket.io.js">  function render() {
+    if (!room) return;
+    const turnColor = TURN_ORDER[room.turnIndex];
+    const turns = me.color ? ROTATION[me.color] : 0;
+
+    // Kings that are in check get a red highlight
+    const teams = teamsMap();
+    const checkedKings = new Set();
+    let turnPlayerInCheck = false;
+    for (const c of TURN_ORDER) {
+      if (room.eliminated[c] || !Rules.isInCheck(room.state, c, teams)) continue;
+      const king = Rules.findKing(room.state, c);
+      checkedKings.add(king[0] + "," + king[1]);
+      if (c === turnColor) turnPlayerInCheck = true;
+    }
+
+    const partner = room.mode === "teams" && me.color ? Rules.TEAMMATE[me.color] : null;
+    $("you").innerHTML = me.color
+      ? `<span class="dot" style="background:${COLOR_HEX[me.color]}"></span>You are ${cap(me.color)}` +
+        (partner ? ` — partner: ${esc(room.names[partner])}` : "") +
+        (room.eliminated[me.color] ? " (out)" : "")
+      : "Room is full. You are watching.";
+
+    const turnEl = $("turnBanner");
+    turnEl.classList.toggle("over", room.over);
+    if (room.over && room.mode === "teams") {
+      turnEl.textContent = room.draw ? "Stalemate — draw!"
+        : `${room.winningTeam.map((c) => room.names[c]).join(" & ")} win!`;
+    } else if (room.over) {
+      turnEl.textContent = room.winner ? `${room.names[room.winner]} wins!` : "Game over";
+    } else if (!room.started) {
+      turnEl.textContent = `Waiting for players (${seatedCount()}/4)`;
+    } else {
+      turnEl.textContent = `${room.names[turnColor]}'s turn` + (isMyTurn() ? " (that's you)" : "") +
+        (turnPlayerInCheck ? " - in check!" : "");
+    }
+
+    $("again").hidden = !(room.over && me.color);
+    $("resign").hidden = !(room.started && !room.over && me.color && !room.eliminated[me.color]);
+
+    const hudSlots = { red: $("hudBottom"), blue: $("hudRight"), yellow: $("hudTop"), green: $("hudLeft") };
+    TURN_ORDER.forEach((c) => {
+      const host = hudSlots[c];
+      if (!host) return;
+      const name = room.seats[c] || room.names[c] || "Waiting";
+      const out = room.eliminated[c];
+      const active = room.started && !room.over && !out && c === turnColor;
+      host.innerHTML = `<div class="player-card color-${COLOR_META[c].cls} ${active ? "active" : ""} ${out ? "eliminated" : ""}">
+        <span class="pc-dot"></span><strong>${esc(name)}</strong>
+        <span class="pc-badge">${out ? "Out" : active ? "Turn" : cap(c)}</span>
+        ${room.clock ? `<span class="pc-clock" data-color="${c}"></span>` : ""}
+      </div>`;
+    });
+    updateClocks();
+
+    $("last").textContent = room.last;
+
+    const boardEl = $("board");
+    boardEl.innerHTML = "";
+    for (let i = 0; i < SIZE; i++) {
+      for (let j = 0; j < SIZE; j++) {
+        const [r, c] = toBoard(i, j, turns);
+        const el = document.createElement("div");
+        el.className = "sq";
+        if (Rules.isVoid(r, c)) {
+          el.classList.add("void");
+        } else {
+          el.classList.add((i + j) % 2 === 0 ? "light" : "dark");
+          const piece = room.state[r][c];
+          if (piece) {
+            el.classList.add(piece.dead ? "dead" : piece.color);
+            if (checkedKings.has(r + "," + c)) el.classList.add("incheck");
+            el.textContent = GLYPH[piece.type] + "\uFE0E";
+          }
+          if (selected && selected.r === r && selected.c === c) el.classList.add("picked");
+          if (targets.some(([tr, tc]) => tr === r && tc === c)) el.classList.add(piece ? "capture" : "target");
+          el.addEventListener("click", () => onSquareClick(r, c));
+        }
+        boardEl.appendChild(el);
+      }
+    }
+  }
+
+</script>
 <script src="rules.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
@@ -736,6 +819,10 @@
     yellow: { hex: "#f5b301", cls: "gold",  label: "Gold"  },
     green:  { hex: "#22c55e", cls: "green", label: "Green" },
   };
+  const COLOR_HEX = Object.fromEntries(
+    Object.entries(COLOR_META).map(([key, meta]) => [key, meta.hex])
+  );
+  const Sound = { play() {} };
   // How many quarter turns (counter-clockwise) bring each color to the bottom of the screen
   const ROTATION = { green: 0, red: 1, blue: 2, yellow: 3 };
   // Clockwise order used to lay player cards around the board, starting at the bottom
@@ -1049,7 +1136,7 @@
     receivedAt = performance.now();
     selected = null;
     targets = [];
-    handleTransitions(prevRoom, room);
+    if (typeof handleTransitions === "function") handleTransitions(prevRoom, room);
     render();
   });
 
