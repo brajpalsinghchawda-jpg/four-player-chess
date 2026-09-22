@@ -276,6 +276,15 @@ io.on("connection", (socket) => {
     broadcast(roomCode);
   });
 
+  socket.on("resign", () => {
+    const room = roomCode && rooms.get(roomCode);
+    if (!room || !myColor || room.over || room.eliminated[myColor]) return;
+    if (checkTimeout(room)) { broadcast(roomCode); return; } // someone else's clock ran out first
+    eliminate(room, myColor, "resigned");
+    resolveTurn(room); // resigning can also leave the current player stuck
+    broadcast(roomCode);
+  });
+
   // Anyone sitting at the table can start a new game once this one is over
   socket.on("rematch", () => {
     const room = roomCode && rooms.get(roomCode);
