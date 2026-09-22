@@ -2,216 +2,879 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>4-Player Chess</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Four Player Chess</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%99%9F%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --light: #ece8df;
-    --dark: #b3ad9f;
-    --bg: #2f3a36;
-    --red: #c0392b;
-    --blue: #2b6cb0;
-    --yellow: #d69e00;
-    --green: #2f855a;
+    color-scheme: dark;
+    --bg: #080a0f;
+    --bg-2: #0c0f17;
+    --surface: rgba(255,255,255,0.055);
+    --surface-hover: rgba(255,255,255,0.09);
+    --surface-strong: rgba(255,255,255,0.09);
+    --border: rgba(255,255,255,0.12);
+    --border-soft: rgba(255,255,255,0.08);
+
+    --red: #ef4444;
+    --red-soft: rgba(239,68,68,0.35);
+    --blue: #3b82f6;
+    --blue-soft: rgba(59,130,246,0.35);
+    --gold: #f5b301;
+    --gold-soft: rgba(245,179,1,0.35);
+    --green: #22c55e;
+    --green-soft: rgba(34,197,94,0.35);
+
+    --text: #f6f7fb;
+    --muted: #97a1b3;
+    --muted-2: #6b7488;
+
+    --shadow-lg: 0 24px 70px rgba(0,0,0,0.55);
+    --shadow-md: 0 12px 34px rgba(0,0,0,0.4);
+    --shadow-sm: 0 6px 16px rgba(0,0,0,0.3);
+
+    --radius-lg: 22px;
+    --radius-md: 14px;
+    --radius-sm: 9px;
+
+    --font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
+    --font-ui: "Inter", system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+    --ease: cubic-bezier(.2,.7,.3,1);
   }
+
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
+
+  html, body {
+    height: 100%;
+  }
+
   body {
     margin: 0;
     min-height: 100vh;
     background: var(--bg);
-    font-family: system-ui, sans-serif;
-    color: #f1efe9;
+    font-family: var(--font-ui);
+    color: var(--text);
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    gap: 14px;
-    padding: 16px;
+    gap: 22px;
+    padding: env(safe-area-inset-top, 0px) 16px 40px;
+    position: relative;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
   }
-  h1 { margin: 0 0 4px; font-size: 26px; }
-  button, input, select {
+
+  /* ---------- Background atmosphere ---------- */
+  #bgfx {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -2;
+    display: block;
+    background:
+      radial-gradient(ellipse 70% 55% at 18% -6%, rgba(239,68,68,0.10), transparent 60%),
+      radial-gradient(ellipse 65% 50% at 100% 12%, rgba(59,130,246,0.10), transparent 60%),
+      radial-gradient(ellipse 60% 55% at 8% 100%, rgba(34,197,94,0.08), transparent 60%),
+      radial-gradient(ellipse 65% 55% at 95% 100%, rgba(245,179,1,0.08), transparent 60%),
+      linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
+  }
+  .bg-glyphs {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .bg-glyphs span {
+    position: absolute;
+    font-size: 120px;
+    color: rgba(255,255,255,0.025);
+    user-select: none;
+  }
+
+  /* ---------- Header / brand ---------- */
+  .brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    margin-top: 22px;
+    text-align: center;
+    animation: fadeDown 500ms var(--ease) both;
+  }
+  .brand-mark {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 6px;
+  }
+  .brand-pawn {
+    background: linear-gradient(135deg, var(--red), var(--gold), var(--green), var(--blue));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    font-size: 18px;
+  }
+  .brand h1 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(24px, 5vw, 34px);
+    letter-spacing: 0.05em;
+  }
+  .brand .tagline {
+    margin: 2px 0 0;
+    color: var(--muted);
+    font-size: 13.5px;
+    letter-spacing: 0.02em;
+  }
+
+  /* ---------- Shared surfaces ---------- */
+  .glass-panel {
+    background: var(--surface);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-lg);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    box-shadow: var(--shadow-md);
+  }
+
+  h1, h2, h3 { font-family: var(--font-display); }
+
+  label { font-size: 12.5px; color: var(--muted); font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; }
+
+  input, select {
     font: inherit;
-    border-radius: 6px;
-    padding: 8px 14px;
+    font-family: var(--font-ui);
+    border-radius: var(--radius-sm);
+    padding: 11px 13px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.04);
+    color: var(--text);
+    outline: none;
+    transition: border-color 160ms var(--ease), background 160ms var(--ease), box-shadow 160ms var(--ease);
+    width: 100%;
   }
-  button {
-    background: #f1efe9;
-    color: #22302b;
-    border: 0;
+  input::placeholder { color: var(--muted-2); }
+  input:focus, select:focus {
+    border-color: rgba(255,255,255,0.4);
+    background: rgba(255,255,255,0.07);
+    box-shadow: 0 0 0 4px rgba(255,255,255,0.06);
+  }
+  select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+    background-position: calc(100% - 18px) calc(50% - 3px), calc(100% - 13px) calc(50% - 3px);
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
     cursor: pointer;
   }
-  button.ghost {
+  select option { color: #10131a; background: #f6f7fb; }
+  #code { text-transform: uppercase; letter-spacing: 0.12em; text-align: center; font-family: var(--font-mono); }
+
+  .field { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+  .row { display: flex; gap: 10px; width: 100%; }
+  .row.two-col > .field { flex: 1; min-width: 0; }
+
+  /* ---------- Buttons ---------- */
+  .premium-button {
+    font: inherit;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.03em;
+    border-radius: var(--radius-sm);
+    padding: 13px 20px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    color: var(--text);
+    background: linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0.03));
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    transition: transform 160ms var(--ease), box-shadow 160ms var(--ease), border-color 160ms var(--ease), opacity 160ms var(--ease), background 160ms var(--ease);
+    position: relative;
+    overflow: hidden;
+  }
+  .premium-button.full { width: 100%; }
+  .premium-button.small { padding: 9px 14px; font-size: 12.5px; }
+  .premium-button.primary {
+    background: linear-gradient(135deg, #ffffff, #d9dce3);
+    color: #0b0d12;
+    border-color: transparent;
+    box-shadow: 0 10px 26px rgba(255,255,255,0.10);
+  }
+  .premium-button.ghost { background: rgba(255,255,255,0.03); }
+  .premium-button.danger:hover { border-color: var(--red-soft); color: #ffb4ac; }
+  .premium-button:hover { transform: translateY(-2px); box-shadow: 0 14px 32px rgba(0,0,0,0.35); border-color: rgba(255,255,255,0.24); }
+  .premium-button.primary:hover { box-shadow: 0 14px 34px rgba(255,255,255,0.16); }
+  .premium-button:active { transform: translateY(0) scale(0.97); }
+  .premium-button:disabled { opacity: 0.5; cursor: default; transform: none !important; }
+
+  .icon-btn {
+    width: 40px; height: 40px;
+    border-radius: 999px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface);
+    backdrop-filter: blur(14px);
+    color: var(--text);
+    font-size: 17px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: transform 150ms var(--ease), border-color 150ms var(--ease), background 150ms var(--ease);
+  }
+  .icon-btn:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.28); background: var(--surface-hover); }
+  .icon-btn:active { transform: translateY(0) scale(0.94); }
+  .sound-toggle { position: fixed; top: calc(16px + env(safe-area-inset-top, 0px)); right: 16px; z-index: 40; }
+
+  /* ---------- Segmented control ---------- */
+  .segmented {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 3px;
+    background: rgba(255,255,255,0.03);
+    gap: 3px;
+  }
+  .seg-btn {
+    flex: 1;
+    border: 0;
     background: transparent;
-    color: inherit;
-    border: 1px solid rgba(255, 255, 255, 0.4);
+    color: var(--muted);
+    font: inherit;
+    font-weight: 600;
+    font-size: 12.5px;
+    padding: 9px 8px;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: background 160ms var(--ease), color 160ms var(--ease);
   }
-  input, select {
-    border: 1px solid rgba(255, 255, 255, 0.4);
-    background: rgba(0, 0, 0, 0.2);
-    color: inherit;
+  .seg-btn.active {
+    background: rgba(255,255,255,0.12);
+    color: var(--text);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.3);
   }
-  select option { color: #22302b; }
-  #name { width: 14em; }
-  #code { width: 9em; text-transform: uppercase; }
-  #lobby { display: flex; flex-direction: column; align-items: center; gap: 14px; }
-  #lobby .row { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
-  #lobby label { display: flex; align-items: center; gap: 8px; font-size: 15px; }
-  #account { display: flex; flex-direction: column; align-items: center; gap: 10px; }
-  #account input { width: 12em; }
-  #whoami { font-size: 15px; }
-  #authNote { min-height: 1.3em; font-size: 13px; color: #f3c98b; text-align: center; }
-  #game { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; }
 
-  #info { display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 16px; }
-  #info .line { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px 18px; }
-  #turn.over { font-size: 20px; font-weight: 700; }
-  .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+  /* ---------- Account panel ---------- */
+  .account-panel {
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    max-width: 480px;
+    width: 100%;
+  }
+  .account-panel .row { justify-content: center; flex-wrap: wrap; width: auto; }
+  .account-panel input { width: 15em; }
+  #whoami { font-size: 13.5px; color: var(--muted); align-self: center; }
+  #authNote { min-height: 1.2em; font-size: 12.5px; color: var(--gold); text-align: center; }
 
-  #seats { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 10px; font-size: 14px; }
-  #seats .seat { opacity: 0.45; padding: 3px 10px; border-radius: 999px; border: 1px solid transparent; }
-  #seats .seat.taken { opacity: 1; }
-  #seats .seat.active { border-color: #f1efe9; font-weight: 600; }
-  #seats .seat.out { opacity: 0.5; text-decoration: line-through; }
-  #seats .seat.offline { opacity: 0.8; font-style: italic; }
-  #seats .clock { margin-left: 8px; font-variant-numeric: tabular-nums; }
-  #seats .clock.low { color: #ff8f7d; font-weight: 700; }
+  /* ---------- Lobby ---------- */
+  .lobby-wrap {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    width: 100%;
+    max-width: 900px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 4px;
+  }
+  .lobby-card {
+    flex: 1 1 300px;
+    max-width: 360px;
+    padding: 26px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    transition: transform 220ms var(--ease), box-shadow 220ms var(--ease), border-color 220ms var(--ease);
+  }
+  .lobby-card:hover { transform: translateY(-3px); border-color: rgba(255,255,255,0.16); box-shadow: var(--shadow-lg); }
+  .card-title { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: 0.01em; }
+  .or-divider {
+    color: var(--muted-2);
+    font-family: var(--font-display);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+  }
+  .entrance { animation: cardIn 420ms var(--ease) both; }
+  .lobby-card:nth-of-type(1) { animation-delay: 40ms; }
+  .or-divider { animation-delay: 120ms; }
+  .lobby-card:nth-of-type(2) { animation-delay: 180ms; }
+  @media (max-width: 760px) {
+    .lobby-wrap { flex-direction: column; }
+    .or-divider { order: 2; }
+  }
 
+  /* ---------- Game arena ---------- */
+  .arena-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+  }
+  .room-banner {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 18px;
+    animation: cardIn 400ms var(--ease) both;
+  }
+  .room-code-label { font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+  .room-code { font-family: var(--font-mono); font-size: 20px; font-weight: 700; letter-spacing: 0.14em; }
+  .copied-flash { color: var(--green) !important; }
+
+  .turn-banner {
+    min-height: 1.4em;
+    font-size: 14px;
+    color: var(--muted);
+    text-align: center;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+  }
+
+  .arena {
+    display: grid;
+    grid-template-columns: minmax(96px, 148px) 1fr minmax(96px, 148px);
+    grid-template-rows: auto auto auto;
+    gap: 10px 14px;
+    align-items: center;
+    justify-items: center;
+    width: min(96vw, 900px);
+  }
+  .hud-top { grid-column: 2; grid-row: 1; }
+  .hud-left { grid-column: 1; grid-row: 2; }
+  .board-frame { grid-column: 2; grid-row: 2; }
+  .hud-right { grid-column: 3; grid-row: 2; }
+  .hud-bottom { grid-column: 2; grid-row: 3; }
+  .hud-slot { width: 100%; display: flex; justify-content: center; }
+
+  /* Player card */
+  .player-card {
+    background: var(--surface);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-md);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    padding: 10px 14px;
+    width: 100%;
+    max-width: 168px;
+    min-width: 108px;
+    box-shadow: var(--shadow-sm);
+    transition: border-color 220ms var(--ease), box-shadow 220ms var(--ease), opacity 300ms var(--ease), transform 220ms var(--ease);
+    position: relative;
+  }
+  .player-card .pc-name-row { display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; letter-spacing: 0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .player-card .pc-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; box-shadow: 0 0 8px currentColor; }
+  .player-card .pc-clock { font-family: var(--font-mono); font-size: 21px; font-weight: 700; margin-top: 4px; font-variant-numeric: tabular-nums; letter-spacing: 0.01em; }
+  .player-card .pc-sub { font-size: 10.5px; color: var(--muted); margin-top: 2px; min-height: 1.3em; letter-spacing: 0.02em; }
+  .player-card .pc-badge {
+    display: inline-block;
+    margin-top: 5px;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    padding: 2px 7px;
+    border-radius: 999px;
+    text-transform: uppercase;
+  }
+  .player-card.empty { opacity: 0.35; }
+  .player-card.offline { opacity: 0.55; font-style: italic; }
+  .player-card.eliminated { opacity: 0.42; }
+  .player-card.eliminated .pc-clock { text-decoration: line-through; }
+  .player-card.eliminated .pc-badge { background: rgba(255,255,255,0.1); color: var(--muted); }
+  .player-card.won { border-color: rgba(255,255,255,0.4); }
+  .player-card.won .pc-badge { background: rgba(255,255,255,0.16); color: var(--text); }
+
+  .player-card.color-red { --pc: var(--red); }
+  .player-card.color-blue { --pc: var(--blue); }
+  .player-card.color-gold { --pc: var(--gold); }
+  .player-card.color-green { --pc: var(--green); }
+  .player-card .pc-dot { background: var(--pc); color: var(--pc); }
+  .player-card.active { border-color: var(--pc); box-shadow: 0 0 0 1px var(--pc) inset, 0 10px 30px -6px var(--pc); animation: cardPulse 1.8s ease-in-out infinite; }
+  .player-card.active .pc-clock { color: var(--pc); }
+  .player-card.active .pc-badge.turn { background: color-mix(in srgb, var(--pc) 30%, transparent); color: var(--text); }
+  .player-card.low-time .pc-clock { color: #ff6b6b; animation: clockPulse 1s ease-in-out infinite; }
+  @keyframes cardPulse {
+    0%, 100% { box-shadow: 0 0 0 1px var(--pc) inset, 0 10px 24px -8px var(--pc); }
+    50% { box-shadow: 0 0 0 1px var(--pc) inset, 0 10px 34px 2px var(--pc); }
+  }
+  @keyframes clockPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+
+  @media (max-width: 700px) {
+    .arena { grid-template-columns: 1fr 1fr; grid-template-rows: auto auto auto; gap: 8px; }
+    .hud-top { grid-column: 1 / 3; grid-row: 1; display: flex; gap: 8px; justify-content: center; }
+    .hud-bottom { grid-column: 1 / 3; grid-row: 3; display: flex; gap: 8px; justify-content: center; }
+    .hud-left { grid-column: 1; grid-row: 2; }
+    .hud-right { grid-column: 2; grid-row: 2; }
+    .board-frame { grid-column: 1 / 3; grid-row: 4; }
+    .player-card { max-width: 140px; padding: 8px 10px; }
+    .player-card .pc-clock { font-size: 17px; }
+  }
+
+  /* ---------- Board ---------- */
+  .board-frame {
+    position: relative;
+    padding: 14px;
+    border-radius: 26px;
+    background: linear-gradient(155deg, rgba(255,255,255,0.07), rgba(255,255,255,0.015));
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+  .board-frame::before {
+    content: "";
+    position: absolute;
+    inset: -40px;
+    z-index: -1;
+    background: radial-gradient(closest-side, rgba(255,255,255,0.06), transparent 70%);
+    pointer-events: none;
+  }
   #board {
     display: grid;
     grid-template-columns: repeat(14, 1fr);
     grid-template-rows: repeat(14, 1fr);
-    width: min(94vw, 66vh, 640px);
+    width: min(90vw, 62vh, 620px);
     aspect-ratio: 1;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.5), inset 0 0 40px rgba(0,0,0,0.35);
+    position: relative;
   }
   .sq {
     position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: min(5.4vw, 4.1vh, 30px);
+    font-size: min(5vw, 3.9vh, 29px);
     line-height: 1;
     cursor: pointer;
     user-select: none;
   }
-  .sq.light { background: var(--light); }
-  .sq.dark  { background: var(--dark); }
-  .sq.void  { visibility: hidden; cursor: default; }
-  .sq.picked { outline: 3px solid #fff; outline-offset: -3px; background: #f3e9a8; }
+  .sq.light { background: #d9d3c4; }
+  .sq.dark { background: #7c7669; }
+  .sq.void { visibility: hidden; cursor: default; background: transparent; }
+  .sq.picked { box-shadow: inset 0 0 0 3px rgba(255,255,255,0.85); background: #efe3a0; }
+  .sq.last-from { box-shadow: inset 0 0 0 3px rgba(255,255,255,0.35); }
+  .sq.last-to { box-shadow: inset 0 0 0 3px rgba(255,255,255,0.55); }
   .sq.target::after {
     content: "";
     position: absolute;
-    width: 32%;
-    height: 32%;
+    width: 30%;
+    height: 30%;
     border-radius: 50%;
-    background: rgba(30, 30, 30, 0.35);
+    background: rgba(20,20,20,0.32);
+    box-shadow: 0 0 10px 2px rgba(255,255,255,0.12);
   }
   .sq.capture::after {
     content: "";
     position: absolute;
-    width: 86%;
-    height: 86%;
+    inset: 6%;
     border-radius: 50%;
-    border: 3px solid rgba(192, 57, 43, 0.85);
+    border: 3px solid rgba(239,68,68,0.85);
+    box-shadow: 0 0 10px rgba(239,68,68,0.4);
   }
-  .red { color: var(--red); }
-  .blue { color: var(--blue); }
-  .yellow { color: var(--yellow); }
-  .green { color: var(--green); }
-  .sq.dead { color: #857f74; opacity: 0.75; }
-  .sq.incheck { background: #f4b9ae; box-shadow: inset 0 0 0 3px #d9432f; }
+  .sq .piece { display: inline-block; will-change: transform; transition: transform 260ms var(--ease); }
+  .sq .piece.pop-in { animation: popIn 220ms var(--ease); }
+  .sq:hover:not(.void) .piece { transform: scale(1.08); }
+  .sq.picked .piece { transform: scale(1.14); filter: drop-shadow(0 0 6px rgba(255,255,255,0.6)); }
+  .red .piece, .piece.red { color: var(--red); }
+  .blue .piece, .piece.blue { color: var(--blue); }
+  .gold .piece, .piece.gold { color: var(--gold); }
+  .green .piece, .piece.green { color: var(--green); }
+  .sq.dead .piece { color: #8a8577; opacity: 0.55; filter: grayscale(1); }
+  .sq.incheck { animation: checkGlow 1s ease-in-out infinite; }
+  @keyframes checkGlow {
+    0%, 100% { box-shadow: inset 0 0 0 3px rgba(239,68,68,0.55), inset 0 0 16px rgba(239,68,68,0.35); }
+    50% { box-shadow: inset 0 0 0 3px rgba(239,68,68,0.9), inset 0 0 26px rgba(239,68,68,0.6); }
+  }
+  @keyframes popIn { from { transform: scale(0.4); opacity: 0.4; } to { transform: scale(1); opacity: 1; } }
 
-  #last { min-height: 1.4em; font-size: 14px; opacity: 0.85; text-align: center; }
-  #note { min-height: 1.4em; font-size: 14px; color: #f3c98b; text-align: center; }
+  .impact-burst {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(239,68,68,0.55), transparent 65%);
+    animation: impactBurst 420ms ease-out forwards;
+  }
+  @keyframes impactBurst { from { opacity: 1; transform: scale(0.4); } to { opacity: 0; transform: scale(1.7); } }
+
+  /* ---------- Controls / footer bits ---------- */
+  .controls-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .you-chip { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 7px; }
+  .you-chip .pc-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; box-shadow: 0 0 8px currentColor; }
+  .last-move { min-height: 1.3em; font-size: 12.5px; color: var(--muted-2); text-align: center; }
+
+  /* ---------- Toasts ---------- */
+  .toast-stack {
+    position: fixed;
+    top: calc(18px + env(safe-area-inset-top, 0px));
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    z-index: 60;
+    pointer-events: none;
+  }
+  .toast {
+    padding: 9px 18px;
+    border-radius: 999px;
+    background: rgba(14,16,22,0.82);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(14px);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    box-shadow: var(--shadow-md);
+    animation: toastIn 260ms var(--ease), toastOut 260ms ease-in 2.1s forwards;
+  }
+  .toast.check { color: #ff8a80; border-color: var(--red-soft); }
+  .toast.turn { color: var(--text); border-color: rgba(255,255,255,0.3); }
+  .toast.info { color: var(--muted); }
+  .toast.eliminated { color: var(--muted); }
+  @keyframes toastIn { from { opacity: 0; transform: translateY(-10px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+  @keyframes toastOut { to { opacity: 0; transform: translateY(-8px); } }
+
+  /* ---------- Bottom note ---------- */
+  .note-banner {
+    position: fixed;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 13px;
+    color: var(--gold);
+    text-align: center;
+    max-width: 90vw;
+    z-index: 40;
+    min-height: 1em;
+  }
+
+  /* ---------- Overlay (countdown / game over) ---------- */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(4,5,8,0.72);
+    backdrop-filter: blur(6px);
+    animation: overlayIn 250ms var(--ease);
+  }
+  @keyframes overlayIn { from { opacity: 0; } to { opacity: 1; } }
+  .overlay-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    text-align: center;
+    animation: overlayScale 380ms var(--ease);
+    padding: 20px;
+  }
+  @keyframes overlayScale { from { opacity: 0; transform: scale(0.85); } to { opacity: 1; transform: scale(1); } }
+  .overlay-count {
+    font-family: var(--font-display);
+    font-size: 88px;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .overlay-ready { font-family: var(--font-display); font-size: 26px; letter-spacing: 0.1em; color: var(--muted); }
+  .overlay-trophy { font-size: 54px; }
+  .overlay-title { font-family: var(--font-display); font-size: 34px; font-weight: 700; letter-spacing: 0.04em; }
+  .overlay-sub { font-size: 17px; color: var(--muted); }
+  .overlay-winner { font-family: var(--font-display); font-size: 26px; font-weight: 700; margin-top: 2px; }
+  .overlay-buttons { display: flex; gap: 10px; margin-top: 14px; }
+
+  /* ---------- Misc animations ---------- */
+  @keyframes fadeDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes cardIn { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+  }
 </style>
 </head>
 <body>
-  <section id="account">
+  <canvas id="bgfx"></canvas>
+  <div class="bg-glyphs" id="bgGlyphs"></div>
+
+  <button id="soundToggle" class="icon-btn sound-toggle" type="button" title="Toggle sound" aria-label="Toggle sound">🔊</button>
+
+  <header class="brand">
+    <div class="brand-mark">4<span class="brand-pawn">&#9823;</span></div>
+    <h1>Four Player Chess</h1>
+    <p class="tagline">One board. Four minds.</p>
+  </header>
+
+  <section id="account" class="glass-panel account-panel">
     <div id="signedOut" class="row">
       <input id="email" type="email" placeholder="Email" autocomplete="email">
-      <button id="sendCode" class="ghost" type="button">Sign in</button>
+      <button id="sendCode" class="premium-button ghost small" type="button">Sign in</button>
     </div>
     <div id="pickUsername" class="row" hidden>
       <input id="username" placeholder="Choose a username" maxlength="20" autocomplete="off">
-      <button id="saveUsername" type="button">Save</button>
+      <button id="saveUsername" class="premium-button small" type="button">Save</button>
     </div>
     <div id="signedIn" class="row" hidden>
       <span id="whoami"></span>
-      <button id="signOut" class="ghost" type="button">Sign out</button>
+      <button id="signOut" class="premium-button ghost small" type="button">Sign out</button>
     </div>
     <div id="authNote"></div>
   </section>
 
-  <section id="lobby">
-    <h1>4-Player Chess</h1>
-    <input id="name" placeholder="Your name" maxlength="16" autocomplete="off">
-    <div class="row">
-      <label>Time each
-        <select id="minutes">
-          <option value="0">No timer</option>
-          <option value="1">1 min</option>
-          <option value="3">3 min</option>
-          <option value="5" selected>5 min</option>
-          <option value="10">10 min</option>
-        </select>
-      </label>
-      <label>Bonus per move
-        <select id="bonus">
-          <option value="0" selected>0 sec</option>
-          <option value="2">2 sec</option>
-          <option value="5">5 sec</option>
-          <option value="10">10 sec</option>
-        </select>
-      </label>
+  <section id="lobby" class="lobby-wrap">
+    <div class="glass-panel lobby-card entrance">
+      <h2 class="card-title">Create a match</h2>
+      <div class="field">
+        <label for="name">Your name</label>
+        <input id="name" placeholder="Enter username" maxlength="16" autocomplete="off">
+      </div>
+      <div class="row two-col">
+        <div class="field">
+          <label for="minutes">Time</label>
+          <select id="minutes">
+            <option value="0">No timer</option>
+            <option value="1">1 min</option>
+            <option value="3">3 min</option>
+            <option value="5" selected>5 min</option>
+            <option value="10">10 min</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="bonus">Increment</label>
+          <select id="bonus">
+            <option value="0" selected>+0 sec</option>
+            <option value="2">+2 sec</option>
+            <option value="5">+5 sec</option>
+            <option value="10">+10 sec</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Mode</label>
+        <div class="segmented" id="modeSeg">
+          <button type="button" class="seg-btn active" data-value="ffa">Free-for-all</button>
+          <button type="button" class="seg-btn" data-value="teams">Teams</button>
+        </div>
+      </div>
+      <button id="create" class="premium-button primary full" type="button">Create Room</button>
     </div>
-    <div class="row">
-      <label>Game mode
-        <select id="mode">
-          <option value="ffa" selected>Free-for-all (last one standing)</option>
-          <option value="teams">Teams — 2 vs 2 (you + the player across from you)</option>
-        </select>
-      </label>
-    </div>
-    <button id="create" type="button">Create a room</button>
-    <div class="row">
-      <input id="code" placeholder="Room code" maxlength="6" autocomplete="off">
-      <button id="join" class="ghost" type="button">Join room</button>
+
+    <div class="or-divider entrance"><span>OR</span></div>
+
+    <div class="glass-panel lobby-card entrance">
+      <h2 class="card-title">Join a match</h2>
+      <div class="field">
+        <label for="code">Room code</label>
+        <input id="code" placeholder="ABCDEF" maxlength="6" autocomplete="off">
+      </div>
+      <button id="join" class="premium-button ghost full" type="button">Join Room</button>
     </div>
   </section>
 
-  <section id="game" hidden>
-    <div id="info">
-      <div class="line">
-        <span id="you"></span>
-        <span id="turn"></span>
+  <section id="game" hidden class="arena-wrap">
+    <div id="roomBanner" class="room-banner glass-panel" hidden>
+      <div>
+        <div class="room-code-label">Room code</div>
+        <div class="room-code" id="roomCodeText">------</div>
       </div>
-      <div class="line">
-        <button id="invite" class="ghost" type="button">Copy invite link</button>
-        <button id="resign" class="ghost" type="button" hidden>Resign</button>
-        <button id="again" type="button" hidden>Play again</button>
-      </div>
-      <div id="seats"></div>
+      <button id="copyCode" class="premium-button ghost small" type="button">Copy Code</button>
     </div>
-    <div id="board" role="grid" aria-label="Four-player chess board"></div>
-    <div id="last"></div>
+
+    <div id="turnBanner" class="turn-banner"></div>
+
+    <div class="arena">
+      <div class="hud-slot hud-top" id="hudTop"></div>
+      <div class="hud-slot hud-left" id="hudLeft"></div>
+      <div class="board-frame">
+        <div id="board" role="grid" aria-label="Four-player chess board"></div>
+      </div>
+      <div class="hud-slot hud-right" id="hudRight"></div>
+      <div class="hud-slot hud-bottom" id="hudBottom"></div>
+    </div>
+
+    <div class="controls-row">
+      <span id="you" class="you-chip"></span>
+      <button id="invite" class="premium-button ghost small" type="button">Copy invite link</button>
+      <button id="resign" class="premium-button ghost small danger" type="button" hidden>Resign</button>
+      <button id="again" class="premium-button primary small" type="button" hidden>Play again</button>
+    </div>
+    <div id="last" class="last-move"></div>
   </section>
 
-  <div id="note"></div>
+  <div id="toasts" class="toast-stack"></div>
+  <div id="note" class="note-banner"></div>
+  <div id="overlay" class="overlay" hidden></div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script src="rules.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
   const { TURN_ORDER, SIZE } = Rules;
-  const GLYPH = { R: "♜", N: "♞", B: "♝", Q: "♛", K: "♚", P: "♟" };
-  const COLOR_HEX = { red: "#c0392b", blue: "#2b6cb0", yellow: "#d69e00", green: "#2f855a" };
+  const GLYPH = { R: "\u265C", N: "\u265E", B: "\u265D", Q: "\u265B", K: "\u265A", P: "\u265F" };
+  // Internal color keys stay red/blue/yellow/green (server + rules.js use these).
+  // Visually "yellow" is shown as gold, per the premium palette.
+  const COLOR_META = {
+    red:    { hex: "#ef4444", cls: "red",   label: "Red"   },
+    blue:   { hex: "#3b82f6", cls: "blue",  label: "Blue"  },
+    yellow: { hex: "#f5b301", cls: "gold",  label: "Gold"  },
+    green:  { hex: "#22c55e", cls: "green", label: "Green" },
+  };
   // How many quarter turns (counter-clockwise) bring each color to the bottom of the screen
   const ROTATION = { green: 0, red: 1, blue: 2, yellow: 3 };
+  // Clockwise order used to lay player cards around the board, starting at the bottom
+  const CLOCKWISE = ["red", "blue", "yellow", "green"];
 
   const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
   const esc = (s) => String(s).replace(/[&<>"']/g, (ch) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
   const $ = (id) => document.getElementById(id);
+
+  /* ================= Background atmosphere ================= */
+  (function initBackground() {
+    // A handful of very low-opacity chess-glyph silhouettes, placed once.
+    const glyphs = ["\u265F", "\u265E", "\u265C", "\u265D", "\u265B"];
+    const host = $("bgGlyphs");
+    const spots = [
+      [6, 8], [88, 14], [14, 78], [92, 84], [50, 4], [48, 92],
+    ];
+    spots.forEach(([left, top], i) => {
+      const el = document.createElement("span");
+      el.textContent = glyphs[i % glyphs.length];
+      el.style.left = left + "vw";
+      el.style.top = top + "vh";
+      el.style.transform = `rotate(${(i * 37) % 30 - 15}deg)`;
+      host.appendChild(el);
+    });
+
+    // Slow-drifting particles on a canvas behind everything. Kept cheap and subtle.
+    const canvas = $("bgfx");
+    const ctx = canvas.getContext("2d");
+    let w, h, particles;
+    function resize() {
+      w = canvas.width = window.innerWidth;
+      h = canvas.height = window.innerHeight;
+    }
+    function makeParticles() {
+      const count = Math.round((w * h) / 42000);
+      particles = Array.from({ length: Math.min(count, 60) }, () => ({
+        x: Math.random() * w,
+        y: Math.random() * h,
+        r: 0.6 + Math.random() * 1.6,
+        vx: (Math.random() - 0.5) * 0.06,
+        vy: (Math.random() - 0.5) * 0.06,
+        a: 0.08 + Math.random() * 0.14,
+      }));
+    }
+    resize();
+    makeParticles();
+    window.addEventListener("resize", () => { resize(); makeParticles(); });
+    function tick() {
+      ctx.clearRect(0, 0, w, h);
+      for (const p of particles) {
+        p.x += p.vx; p.y += p.vy;
+        if (p.x < 0) p.x = w; if (p.x > w) p.x = 0;
+        if (p.y < 0) p.y = h; if (p.y > h) p.y = 0;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255,255,255,${p.a})`;
+        ctx.fill();
+      }
+      requestAnimationFrame(tick);
+    }
+    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) requestAnimationFrame(tick);
+  })();
+
+  /* ================= Sound ================= */
+  const Sound = (function () {
+    let ctx = null;
+    let on = true;
+    try { on = localStorage.getItem("chess-sound") !== "off"; } catch (e) {}
+
+    function ensureCtx() {
+      if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state === "suspended") ctx.resume();
+      return ctx;
+    }
+    function tone(freq, start, dur, opts) {
+      opts = opts || {};
+      const c = ensureCtx();
+      const osc = c.createOscillator();
+      const gain = c.createGain();
+      osc.type = opts.type || "sine";
+      osc.frequency.setValueAtTime(freq, c.currentTime + start);
+      if (opts.slideTo) osc.frequency.exponentialRampToValueAtTime(opts.slideTo, c.currentTime + start + dur);
+      const vol = opts.vol != null ? opts.vol : 0.12;
+      gain.gain.setValueAtTime(0.0001, c.currentTime + start);
+      gain.gain.exponentialRampToValueAtTime(vol, c.currentTime + start + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + start + dur);
+      osc.connect(gain).connect(c.destination);
+      osc.start(c.currentTime + start);
+      osc.stop(c.currentTime + start + dur + 0.02);
+    }
+    function play(name) {
+      if (!on) return;
+      try {
+        switch (name) {
+          case "move": tone(520, 0, 0.09, { vol: 0.07 }); break;
+          case "capture": tone(180, 0, 0.16, { type: "triangle", vol: 0.14, slideTo: 90 }); break;
+          case "check": tone(740, 0, 0.1, { vol: 0.1 }); tone(880, 0.09, 0.14, { vol: 0.11 }); break;
+          case "checkmate":
+            [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.09, 0.28, { vol: 0.1 }));
+            break;
+          case "yourTurn": tone(660, 0, 0.12, { vol: 0.08 }); tone(880, 0.1, 0.16, { vol: 0.08 }); break;
+          case "eliminated": tone(320, 0, 0.22, { type: "sawtooth", vol: 0.08, slideTo: 120 }); break;
+          case "lowTime": tone(1000, 0, 0.05, { vol: 0.06 }); break;
+          case "tick": tone(440, 0, 0.06, { vol: 0.07 }); break;
+          case "go": tone(660, 0, 0.09, { vol: 0.1 }); tone(990, 0.08, 0.22, { vol: 0.12 }); break;
+          case "join": tone(700, 0, 0.08, { vol: 0.06 }); break;
+          case "victory":
+            [523, 659, 784, 988, 1175].forEach((f, i) => tone(f, i * 0.1, 0.35, { vol: 0.11 }));
+            break;
+        }
+      } catch (e) {}
+    }
+    function toggle() {
+      on = !on;
+      try { localStorage.setItem("chess-sound", on ? "on" : "off"); } catch (e) {}
+      updateButton();
+      if (on) play("move");
+      return on;
+    }
+    function updateButton() {
+      const btn = $("soundToggle");
+      btn.textContent = on ? "\uD83D\uDD0A" : "\uD83D\uDD07";
+      btn.title = on ? "Sound on" : "Sound off";
+    }
+    return { play, toggle, updateButton, isOn: () => on };
+  })();
+  Sound.updateButton();
+  $("soundToggle").addEventListener("click", () => Sound.toggle());
+
+  /* ================= Toasts ================= */
+  function toast(text, cls) {
+    const el = document.createElement("div");
+    el.className = "toast" + (cls ? " " + cls : "");
+    el.textContent = text;
+    $("toasts").appendChild(el);
+    setTimeout(() => el.remove(), 2500);
+  }
 
   /* ---------- Account: sign in with an emailed link, then pick a username ---------- */
   const SUPABASE_URL = "https://wiqtusnrtxkukecfqrxd.supabase.co";
@@ -315,9 +978,21 @@
   const socket = io();
   let me = { code: null, color: null };
   let room = null;         // latest game state from the server
+  let prevRoom = null;     // the room state before the current one, kept for diff/animation purposes
   let receivedAt = 0;      // when that state arrived (used to run the clocks smoothly)
   let selected = null;     // { r, c } in real board coordinates
   let targets = [];        // squares the selected piece can go to
+  let lastMoveSquares = null; // { from: {r,c}, to: {r,c} } for the highlight, or null
+  let gameStartedShown = false;
+
+  /* ---------- Mode segmented control ---------- */
+  let selectedMode = "ffa";
+  $("modeSeg").addEventListener("click", (e) => {
+    const btn = e.target.closest(".seg-btn");
+    if (!btn) return;
+    selectedMode = btn.dataset.value;
+    $("modeSeg").querySelectorAll(".seg-btn").forEach((b) => b.classList.toggle("active", b === btn));
+  });
 
   /* ---------- Names and joining ---------- */
   try { $("name").value = localStorage.getItem("chess-name") || ""; } catch (e) {}
@@ -363,23 +1038,31 @@
     $("account").hidden = true;
     $("lobby").hidden = true;
     $("game").hidden = false;
+    $("roomBanner").hidden = false;
+    $("roomCodeText").textContent = code;
+    gameStartedShown = false;
   });
 
   socket.on("room", (r) => {
+    prevRoom = room;
     room = r;
     receivedAt = performance.now();
     selected = null;
     targets = [];
+    handleTransitions(prevRoom, room);
     render();
   });
 
-  $("create").addEventListener("click", () => socket.emit("createRoom", {
-    name: myName(),
-    minutes: Number($("minutes").value),
-    bonus: Number($("bonus").value),
-    mode: $("mode").value,
-  }));
-  $("join").addEventListener("click", () => join($("code").value));
+  $("create").addEventListener("click", () => {
+    Sound.play("move");
+    socket.emit("createRoom", {
+      name: myName(),
+      minutes: Number($("minutes").value),
+      bonus: Number($("bonus").value),
+      mode: selectedMode,
+    });
+  });
+  $("join").addEventListener("click", () => { Sound.play("move"); join($("code").value); });
   $("again").addEventListener("click", () => socket.emit("rematch"));
   $("resign").addEventListener("click", () => {
     const msg = room && room.mode === "teams"
@@ -395,6 +1078,19 @@
       $("note").textContent = "Copy this link from the address bar: " + location.href;
     }
   });
+  $("copyCode").addEventListener("click", async () => {
+    const code = $("roomCodeText").textContent;
+    const btn = $("copyCode");
+    try {
+      await navigator.clipboard.writeText(code);
+      const original = btn.textContent;
+      btn.textContent = "\u2713 Copied";
+      btn.classList.add("copied-flash");
+      setTimeout(() => { btn.textContent = original; btn.classList.remove("copied-flash"); }, 1400);
+    } catch (e) {
+      $("note").textContent = "Room code: " + code;
+    }
+  });
 
   /* ---------- Rotating the board ---------- */
   // Turns a square on the screen (i, j) into the real board square (r, c)
@@ -407,6 +1103,17 @@
       c = nc;
     }
     return [r, c];
+  }
+  // Inverse of toBoard: real board square (r, c) to a screen square (i, j)
+  function toScreen(r, c, quarterTurns) {
+    let i = r, j = c;
+    for (let n = 0; n < quarterTurns; n++) {
+      const ni = SIZE - 1 - j;
+      const nj = i;
+      i = ni;
+      j = nj;
+    }
+    return [i, j];
   }
 
   /* ---------- Clocks ---------- */
@@ -423,10 +1130,12 @@
 
   function updateClocks() {
     if (!room || !room.clock) return;
-    document.querySelectorAll("#seats .clock").forEach((el) => {
-      const ms = remainingMs(el.dataset.color);
+    document.querySelectorAll(".pc-clock[data-color]").forEach((el) => {
+      const color = el.dataset.color;
+      const ms = remainingMs(color);
       el.textContent = formatTime(ms);
-      el.classList.toggle("low", ms < 10000 && !room.eliminated[el.dataset.color]);
+      const low = ms < 10000 && !room.eliminated[color];
+      el.closest(".player-card").classList.toggle("low-time", low);
     });
   }
   setInterval(updateClocks, 200);
@@ -453,99 +1162,12 @@
     if (piece && piece.color === me.color) {
       selected = { r, c };
       targets = Rules.legalMoves(room.state, r, c, teamsMap());
+      if (targets.length === 0) Sound.play("tick");
     } else {
       selected = null;
       targets = [];
     }
     render();
-  }
-
-  /* ---------- Drawing ---------- */
-  function render() {
-    if (!room) return;
-    const turnColor = TURN_ORDER[room.turnIndex];
-    const turns = me.color ? ROTATION[me.color] : 0;
-
-    // Kings that are in check get a red highlight
-    const teams = teamsMap();
-    const checkedKings = new Set();
-    let turnPlayerInCheck = false;
-    for (const c of TURN_ORDER) {
-      if (room.eliminated[c] || !Rules.isInCheck(room.state, c, teams)) continue;
-      const king = Rules.findKing(room.state, c);
-      checkedKings.add(king[0] + "," + king[1]);
-      if (c === turnColor) turnPlayerInCheck = true;
-    }
-
-    const partner = room.mode === "teams" && me.color ? Rules.TEAMMATE[me.color] : null;
-    $("you").innerHTML = me.color
-      ? `<span class="dot" style="background:${COLOR_HEX[me.color]}"></span>You are ${cap(me.color)}` +
-        (partner ? ` — partner: ${esc(room.names[partner])}` : "") +
-        (room.eliminated[me.color] ? " (out)" : "")
-      : "Room is full. You are watching.";
-
-    const turnEl = $("turn");
-    turnEl.classList.toggle("over", room.over);
-    if (room.over && room.mode === "teams") {
-      turnEl.textContent = room.draw ? "Stalemate — draw!"
-        : `${room.winningTeam.map((c) => room.names[c]).join(" & ")} win!`;
-    } else if (room.over) {
-      turnEl.textContent = room.winner ? `${room.names[room.winner]} wins!` : "Game over";
-    } else if (!room.started) {
-      turnEl.textContent = `Waiting for players (${seatedCount()}/4)`;
-    } else {
-      turnEl.textContent = `${room.names[turnColor]}'s turn` + (isMyTurn() ? " (that's you)" : "") +
-        (turnPlayerInCheck ? " - in check!" : "");
-    }
-
-    $("again").hidden = !(room.over && me.color);
-    $("resign").hidden = !(room.started && !room.over && me.color && !room.eliminated[me.color]);
-
-    $("seats").innerHTML = TURN_ORDER.map((c) => {
-      const name = room.seats[c];
-      const out = room.eliminated[c];
-      const offline = room.started && !name && !out;
-      const cls = "seat" + (name ? " taken" : "") + (out ? " out" : "") + (offline ? " offline" : "") +
-        (room.started && !room.over && !out && c === turnColor ? " active" : "");
-      const label = name ? esc(name)
-        : (offline ? esc(room.names[c]) + " (offline)" : (out ? esc(room.names[c]) : "empty"));
-      const won = room.mode === "teams"
-        ? room.over && !room.draw && room.winningTeam && room.winningTeam.includes(c)
-        : room.over && room.winner === c;
-      const star = won ? " ★" : "";
-      const partnerTag = room.mode === "teams" ? ` (with ${esc(room.names[Rules.TEAMMATE[c]])})` : "";
-      return `<span class="${cls}"><span class="dot" style="background:${COLOR_HEX[c]}"></span>` +
-             `${label}${star}${partnerTag}` +
-             (room.clock ? `<span class="clock" data-color="${c}"></span>` : "") + `</span>`;
-    }).join("");
-    updateClocks();
-
-    $("last").textContent = room.last;
-
-    const boardEl = $("board");
-    boardEl.innerHTML = "";
-    for (let i = 0; i < SIZE; i++) {
-      for (let j = 0; j < SIZE; j++) {
-        const [r, c] = toBoard(i, j, turns);
-        const el = document.createElement("div");
-        el.className = "sq";
-        if (Rules.isVoid(r, c)) {
-          el.classList.add("void");
-        } else {
-          el.classList.add((i + j) % 2 === 0 ? "light" : "dark");
-          const piece = room.state[r][c];
-          if (piece) {
-            el.classList.add(piece.dead ? "dead" : piece.color);
-            if (checkedKings.has(r + "," + c)) el.classList.add("incheck");
-            el.textContent = GLYPH[piece.type] + "\uFE0E";
-          }
-          if (selected && selected.r === r && selected.c === c) el.classList.add("picked");
-          if (targets.some(([tr, tc]) => tr === r && tc === c)) el.classList.add(piece ? "capture" : "target");
-          el.addEventListener("click", () => onSquareClick(r, c));
-        }
-        boardEl.appendChild(el);
-      }
-    }
   }
 </script>
 </body>
