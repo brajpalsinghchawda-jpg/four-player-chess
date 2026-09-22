@@ -11,6 +11,9 @@
   const SIZE = 14;
   const TURN_ORDER = ["red", "blue", "yellow", "green"]; // clockwise, red starts
 
+  // In Teams mode, the player sitting across the board is your partner (chess.com's pairing)
+  const TEAMMATE = { red: "yellow", yellow: "red", blue: "green", green: "blue" };
+
   // Direction each color's pawns move: [row change, column change]
   const FORWARD = { green: [-1, 0], blue: [1, 0], red: [0, 1], yellow: [0, -1] };
 
@@ -49,16 +52,19 @@
 
   // Squares the piece at (r, c) can reach, ignoring whether its own king ends up in check.
   // (No castling, en passant or promotion yet.)
-  function pseudoMoves(state, r, c) {
+  // `teams`, when given, is the TEAMMATE map: it makes a partner's pieces
+  // impossible to capture or move onto, exactly like your own pieces.
+  function pseudoMoves(state, r, c, teams) {
     const piece = state[r][c];
     if (!piece) return [];
     const out = [];
+    const partner = teams && teams[piece.color];
 
     // A living king can never be captured, but the pieces of an eliminated player
     // (marked dead) stay on the board and can be captured like any other piece.
     const isEnemy = (nr, nc) => {
       const t = state[nr][nc];
-      return t && t.color !== piece.color && (t.type !== "K" || t.dead);
+      return t && t.color !== piece.color && t.color !== partner && (t.type !== "K" || t.dead);
     };
 
     const slide = (dirs) => {
@@ -91,7 +97,7 @@
       case "N": jump(KNIGHT_JUMPS); break;
       case "K":
         jump(ROOK_DIRS.concat(BISHOP_DIRS));
-        castlingMoves(state, piece, r, c, out);
+        castlingMoves(state, piece, r, c, out, teams);
         break;
       case "P": {
         const [fr, fc] = FORWARD[piece.color];
@@ -135,22 +141,25 @@
     return [i, 13]; // yellow
   }
 
-  // Pawns promote to a queen on their 8th rank (the middle of the board)
-  function isPromotionSquare(color, r, c) {
-    return (color === "green" && r === 6) || (color === "blue" && r === 7) ||
-           (color === "red" && c === 7) || (color === "yellow" && c === 6);
+  // Pawns promote to a queen on `rank` (their 8th rank in FFA, their 11th rank in Teams)
+  function isPromotionSquare(color, r, c, rank) {
+    rank = rank || 8;
+    if (color === "green") return r === SIZE - rank;
+    if (color === "blue") return r === rank - 1;
+    if (color === "red") return c === rank - 1;
+    return c === SIZE - rank; // yellow
   }
 
   // Adds the castling squares (two steps toward an unmoved rook) to `out`.
   // Rules: king and rook never moved, squares between them empty, the king is not in check,
   // and the king does not pass through or land on an attacked square.
-  function castlingMoves(state, king, r, c, out) {
+  function castlingMoves(state, king, r, c, out, teams) {
     if (king.moved || king.dead) return;
     const color = king.color;
     const kIdx = KING_INDEX[color];
     const [homeR, homeC] = backSquare(color, kIdx);
     if (r !== homeR || c !== homeC) return;
-    if (isInCheck(state, color)) return;
+    if (isInCheck(state, color, teams)) return;
 
     for (const rookIdx of [3, 10]) {
       const [rr, rc] = backSquare(color, rookIdx);
@@ -170,7 +179,7 @@
         const [sr, sc] = backSquare(color, kIdx + dir * step);
         state[r][c] = null;
         state[sr][sc] = king;
-        const attacked = isInCheck(state, color);
+        const attacked = isInCheck(state, color, teams);
         state[sr][sc] = null;
         state[r][c] = king;
         if (attacked) { safe = false; break; }
@@ -180,7 +189,7 @@
   }
 
   // Plays a move on the board (already checked as legal). Handles castling and promotion.
-  function applyMove(state, from, to) {
+  function applyMove(state, from, to, promotionRank) {
     const piece = state[from.r][from.c];
     const result = { captured: state[to.r][to.c], castled: false, promoted: false };
 
@@ -202,7 +211,7 @@
     state[from.r][from.c] = null;
     piece.moved = true;
 
-    if (piece.type === "P" && isPromotionSquare(piece.color, to.r, to.c)) {
+    if (piece.type === "P" && isPromotionSquare(piece.color, to.r, to.c, promotionRank)) {
       piece.type = "Q";
       piece.promoted = true;
       result.promoted = true;
@@ -257,13 +266,15 @@
 
   // Is this player's king attacked by any living opponent piece?
   // (Pieces of eliminated players are dead and attack nothing.)
-  function isInCheck(state, color) {
+  function isInCheck(state, color, teams) {
     const king = findKing(state, color);
     if (!king) return false;
+    const partner = teams && teams[color];
     for (let r = 0; r < SIZE; r++) {
       for (let c = 0; c < SIZE; c++) {
         const p = state[r][c];
-        if (p && p.color !== color && !p.dead && pieceAttacks(state, r, c, king[0], king[1])) return true;
+        if (p && p.color !== color && p.color !== partner && !p.dead &&
+            pieceAttacks(state, r, c, king[0], king[1])) return true;
       }
     }
     return false;
@@ -271,32 +282,32 @@
 
   // Squares the piece at (r, c) can really move to: moves that would leave
   // your own king in check are not allowed.
-  function legalMoves(state, r, c) {
+  function legalMoves(state, r, c, teams) {
     const piece = state[r][c];
     if (!piece || piece.dead) return [];
-    return pseudoMoves(state, r, c).filter(([nr, nc]) => {
+    return pseudoMoves(state, r, c, teams).filter(([nr, nc]) => {
       const target = state[nr][nc];
       state[nr][nc] = piece;   // try the move...
       state[r][c] = null;
-      const safe = !isInCheck(state, piece.color);
+      const safe = !isInCheck(state, piece.color, teams);
       state[r][c] = piece;     // ...and take it back
       state[nr][nc] = target;
       return safe;
     });
   }
 
-  function hasAnyLegalMove(state, color) {
+  function hasAnyLegalMove(state, color, teams) {
     for (let r = 0; r < SIZE; r++) {
       for (let c = 0; c < SIZE; c++) {
         const p = state[r][c];
-        if (p && p.color === color && !p.dead && legalMoves(state, r, c).length > 0) return true;
+        if (p && p.color === color && !p.dead && legalMoves(state, r, c, teams).length > 0) return true;
       }
     }
     return false;
   }
 
   return {
-    SIZE, TURN_ORDER, newState, legalMoves, pseudoMoves, applyMove, isInCheck, findKing,
+    SIZE, TURN_ORDER, TEAMMATE, newState, legalMoves, pseudoMoves, applyMove, isInCheck, findKing,
     hasAnyLegalMove, markDead, isVoid, inBoard, squareName,
   };
 });

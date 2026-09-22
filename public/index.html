@@ -144,6 +144,14 @@
         </select>
       </label>
     </div>
+    <div class="row">
+      <label>Game mode
+        <select id="mode">
+          <option value="ffa" selected>Free-for-all (last one standing)</option>
+          <option value="teams">Teams — 2 vs 2 (you + the player across from you)</option>
+        </select>
+      </label>
+    </div>
     <button id="create" type="button">Create a room</button>
     <div class="row">
       <input id="code" placeholder="Room code" maxlength="6" autocomplete="off">
@@ -247,11 +255,15 @@
     name: myName(),
     minutes: Number($("minutes").value),
     bonus: Number($("bonus").value),
+    mode: $("mode").value,
   }));
   $("join").addEventListener("click", () => join($("code").value));
   $("again").addEventListener("click", () => socket.emit("rematch"));
   $("resign").addEventListener("click", () => {
-    if (confirm("Resign this game? Your pieces will be taken out of play.")) socket.emit("resign");
+    const msg = room && room.mode === "teams"
+      ? "Resign this game? Your team will lose."
+      : "Resign this game? Your pieces will be taken out of play.";
+    if (confirm(msg)) socket.emit("resign");
   });
   $("invite").addEventListener("click", async () => {
     try {
@@ -298,6 +310,7 @@
   setInterval(updateClocks, 200);
 
   /* ---------- Playing ---------- */
+  const teamsMap = () => (room && room.mode === "teams" ? Rules.TEAMMATE : undefined);
   const seatedCount = () => TURN_ORDER.filter((c) => room.seats[c]).length;
   const isMyTurn = () =>
     room && room.started && !room.over && me.color &&
@@ -317,7 +330,7 @@
     const piece = room.state[r][c];
     if (piece && piece.color === me.color) {
       selected = { r, c };
-      targets = Rules.legalMoves(room.state, r, c);
+      targets = Rules.legalMoves(room.state, r, c, teamsMap());
     } else {
       selected = null;
       targets = [];
@@ -332,23 +345,29 @@
     const turns = me.color ? ROTATION[me.color] : 0;
 
     // Kings that are in check get a red highlight
+    const teams = teamsMap();
     const checkedKings = new Set();
     let turnPlayerInCheck = false;
     for (const c of TURN_ORDER) {
-      if (room.eliminated[c] || !Rules.isInCheck(room.state, c)) continue;
+      if (room.eliminated[c] || !Rules.isInCheck(room.state, c, teams)) continue;
       const king = Rules.findKing(room.state, c);
       checkedKings.add(king[0] + "," + king[1]);
       if (c === turnColor) turnPlayerInCheck = true;
     }
 
+    const partner = room.mode === "teams" && me.color ? Rules.TEAMMATE[me.color] : null;
     $("you").innerHTML = me.color
       ? `<span class="dot" style="background:${COLOR_HEX[me.color]}"></span>You are ${cap(me.color)}` +
+        (partner ? ` — partner: ${esc(room.names[partner])}` : "") +
         (room.eliminated[me.color] ? " (out)" : "")
       : "Room is full. You are watching.";
 
     const turnEl = $("turn");
     turnEl.classList.toggle("over", room.over);
-    if (room.over) {
+    if (room.over && room.mode === "teams") {
+      turnEl.textContent = room.draw ? "Stalemate — draw!"
+        : `${room.winningTeam.map((c) => room.names[c]).join(" & ")} win!`;
+    } else if (room.over) {
       turnEl.textContent = room.winner ? `${room.names[room.winner]} wins!` : "Game over";
     } else if (!room.started) {
       turnEl.textContent = `Waiting for players (${seatedCount()}/4)`;
@@ -368,9 +387,13 @@
         (room.started && !room.over && !out && c === turnColor ? " active" : "");
       const label = name ? esc(name)
         : (offline ? esc(room.names[c]) + " (offline)" : (out ? esc(room.names[c]) : "empty"));
-      const star = room.over && room.winner === c ? " ★" : "";
+      const won = room.mode === "teams"
+        ? room.over && !room.draw && room.winningTeam && room.winningTeam.includes(c)
+        : room.over && room.winner === c;
+      const star = won ? " ★" : "";
+      const partnerTag = room.mode === "teams" ? ` (with ${esc(room.names[Rules.TEAMMATE[c]])})` : "";
       return `<span class="${cls}"><span class="dot" style="background:${COLOR_HEX[c]}"></span>` +
-             `${label}${star}` +
+             `${label}${star}${partnerTag}` +
              (room.clock ? `<span class="clock" data-color="${c}"></span>` : "") + `</span>`;
     }).join("");
     updateClocks();
