@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -714,11 +713,11 @@
     border-radius: 99px; background: linear-gradient(90deg, #f5b301, transparent);
   }
   .premium-button.primary {
-    background: linear-gradient(135deg, #ffe39a 0%, #f5b301 48%, #d58f00 100%);
-    color: #151006;
-    box-shadow: 0 12px 30px rgba(245,179,1,.18), inset 0 1px 0 rgba(255,255,255,.35);
+    background: linear-gradient(135deg, #ffffff, #d9dce3);
+    color: #0b0d12;
+    box-shadow: 0 12px 30px rgba(255,255,255,.10), inset 0 1px 0 rgba(255,255,255,.65);
   }
-  .premium-button.primary:hover { box-shadow: 0 16px 38px rgba(245,179,1,.25), 0 0 24px rgba(245,179,1,.10); }
+  .premium-button.primary:hover { box-shadow: 0 16px 38px rgba(255,255,255,.16); }
   .field label { color: #8f99ab; }
   input, select { min-height: 44px; background: rgba(5,7,12,.34); border-color: rgba(255,255,255,.10); }
   input:focus, select:focus { border-color: rgba(245,179,1,.48); box-shadow: 0 0 0 4px rgba(245,179,1,.07), 0 8px 22px rgba(0,0,0,.18); }
@@ -756,7 +755,8 @@
     text-transform:uppercase;
     box-shadow:inset 0 1px 0 rgba(255,255,255,.04);
   }
-  #roomStatus::before { content:""; display:inline-block; width:6px; height:6px; border-radius:50%; background:#f5b301; box-shadow:0 0 9px #f5b301; margin-right:7px; vertical-align:1px; }
+  #roomStatus::before { content:""; display:inline-block; width:6px; height:6px; border-radius:50%; background:#22c55e; box-shadow:0 0 9px #22c55e; margin-right:7px; vertical-align:1px; }
+  #roomStatus { width:min(100%,1080px); text-align:center; }
   .turn-banner {
     width:min(100%,760px);
     min-height:32px;
@@ -766,6 +766,39 @@
     background:rgba(255,255,255,.025);
     border:1px solid rgba(255,255,255,.055);
     box-shadow:inset 0 1px 0 rgba(255,255,255,.025);
+  }
+
+  /* ---------- Waiting room / player panel ---------- */
+  .waiting-panel {
+    width: min(100%, 1080px);
+    padding: 13px 15px 14px;
+    border-color: rgba(255,255,255,.09);
+    background: linear-gradient(145deg, rgba(255,255,255,.055), rgba(255,255,255,.018));
+    box-shadow: 0 16px 42px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,255,255,.045);
+    animation: cardIn 320ms var(--ease) both;
+  }
+  .waiting-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
+  .waiting-head > div { display:flex; align-items:baseline; gap:9px; min-width:0; }
+  .waiting-head strong { font-family:var(--font-display); font-size:14px; letter-spacing:.01em; }
+  #waitingCount { color:var(--muted); font-family:var(--font-mono); font-size:11px; }
+  .waiting-live { color:var(--muted); font-size:9px; font-weight:800; letter-spacing:.12em; white-space:nowrap; }
+  .waiting-live i { display:inline-block; width:6px; height:6px; border-radius:50%; background:#22c55e; box-shadow:0 0 9px #22c55e; margin-right:5px; vertical-align:1px; }
+  .waiting-progress { height:4px; border-radius:99px; overflow:hidden; background:rgba(255,255,255,.06); margin-bottom:11px; }
+  #waitingProgress { display:block; width:25%; height:100%; border-radius:inherit; background:linear-gradient(90deg, #fff, rgba(255,255,255,.42)); transition:width 260ms var(--ease); }
+  .seat-strip { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+  .seat-item { min-width:0; padding:9px 10px; border-radius:10px; border:1px solid rgba(255,255,255,.07); background:rgba(255,255,255,.025); display:flex; align-items:center; gap:8px; transition:border-color 180ms var(--ease), background 180ms var(--ease), transform 180ms var(--ease); }
+  .seat-item.filled { background:rgba(255,255,255,.045); border-color:rgba(255,255,255,.11); }
+  .seat-item.you { border-color:rgba(255,255,255,.25); box-shadow:inset 0 0 0 1px rgba(255,255,255,.04); }
+  .seat-dot { width:9px; height:9px; border-radius:50%; flex:none; background:var(--seat-color); box-shadow:0 0 9px var(--seat-color); }
+  .seat-text { min-width:0; display:flex; flex-direction:column; gap:2px; }
+  .seat-name { font-size:11px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .seat-state { font-size:9px; color:var(--muted-2); letter-spacing:.03em; }
+  .seat-item.empty .seat-dot { background:rgba(255,255,255,.16); box-shadow:none; }
+  .seat-item.empty .seat-name { color:var(--muted-2); font-weight:600; }
+  @media (max-width:760px) {
+    .waiting-panel { padding:11px 12px 12px; }
+    .seat-strip { grid-template-columns:repeat(2,1fr); }
+    .seat-item { padding:8px 9px; }
   }
 
   /* Player HUD */
@@ -909,6 +942,18 @@
     </div>
     <div id="roomStatus" class="room-status" aria-live="polite">Waiting for players</div>
 
+    <div id="waitingPanel" class="waiting-panel glass-panel" hidden>
+      <div class="waiting-head">
+        <div>
+          <strong id="waitingTitle">Waiting for players</strong>
+          <span id="waitingCount">1 / 4</span>
+        </div>
+        <span class="waiting-live"><i></i> LIVE ROOM</span>
+      </div>
+      <div class="waiting-progress"><span id="waitingProgress"></span></div>
+      <div id="seatStrip" class="seat-strip"></div>
+    </div>
+
     <div id="turnBanner" class="turn-banner"></div>
 
     <div class="arena">
@@ -936,8 +981,37 @@
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
+  function updateWaitingPanel() {
+    const panel = $("waitingPanel");
+    if (!panel || !room) return;
+    const colors = ["red", "blue", "yellow", "green"];
+    const count = colors.filter((c) => room.seats && room.seats[c]).length;
+    const started = !!room.started;
+    panel.hidden = started;
+    const title = $("waitingTitle");
+    const countEl = $("waitingCount");
+    const progress = $("waitingProgress");
+    const strip = $("seatStrip");
+    if (title) title.textContent = count >= 4 ? "All players ready" : "Waiting for players";
+    if (countEl) countEl.textContent = `${count} / 4`;
+    if (progress) progress.style.width = `${Math.max(25, count * 25)}%`;
+    if (strip) {
+      strip.innerHTML = colors.map((c) => {
+        const name = room.seats && room.seats[c] ? room.seats[c] : "Waiting for player";
+        const filled = !!(room.seats && room.seats[c]);
+        const isYou = !!(me && me.color === c);
+        const meta = COLOR_META[c];
+        return `<div class="seat-item ${filled ? "filled" : "empty"} ${isYou ? "you" : ""}">
+          <span class="seat-dot" style="--seat-color:${meta.hex}"></span>
+          <span class="seat-text"><span class="seat-name">${esc(name)}${isYou ? " · You" : ""}</span><span class="seat-state">${filled ? meta.label + " seat" : "Open seat"}</span></span>
+        </div>`;
+      }).join("");
+    }
+  }
+
   function render() {
     if (!room) return;
+    updateWaitingPanel();
     const count = TURN_ORDER.filter((c) => room.seats && room.seats[c]).length;
     const status = $("roomStatus");
     if (status) status.textContent = room.started ? "Game in progress" : `Waiting for players (${count}/4)`;
@@ -1357,6 +1431,7 @@
     $("roomBanner").hidden = false;
     $("roomCodeText").textContent = code;
     $("roomStatus").textContent = "Waiting for players";
+    $("waitingPanel").hidden = false;
     gameStartedShown = false;
   });
 
