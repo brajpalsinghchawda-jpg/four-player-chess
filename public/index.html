@@ -1621,7 +1621,7 @@ body.game-screen #game {
   function join(code) {
     code = code.trim().toUpperCase();
     if (!code) return;
-    const savedColor = sessionStorage.getItem("seat-" + code) || null;
+    const savedColor = localStorage.getItem("seat-" + code) || null;
     socket.emit("joinRoom", { code, color: savedColor, name: myName() });
   }
 
@@ -1634,7 +1634,7 @@ body.game-screen #game {
     const code = location.hash.slice(1).toUpperCase();
     if (!code) return;
     $("code").value = code;
-    if (sessionStorage.getItem("seat-" + code) !== null) {
+    if (localStorage.getItem("seat-" + code) !== null) {
       join(code);                                    // you were already in this room
     } else {
       $("note").textContent = "Type your name, then press Join room.";
@@ -1646,7 +1646,7 @@ body.game-screen #game {
 
   socket.on("joined", ({ code, color }) => {
     me = { code, color };
-    sessionStorage.setItem("seat-" + code, color || "");
+    localStorage.setItem("seat-" + code, color || "");
     location.hash = code;
     $("note").textContent = "";
     $("account").hidden = true;
