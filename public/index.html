@@ -677,6 +677,52 @@
   }
 
 </style>
+
+<style id="mobile-lobby-fix">
+  /* Mobile viewport fix: keep the premium lobby fully reachable above browser bars. */
+  @media (max-width: 760px) {
+    html {
+      min-height: 100%;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+    body {
+      min-height: 100svh;
+      min-height: 100dvh;
+      height: auto;
+      box-sizing: border-box;
+      overflow-x: hidden;
+      overflow-y: auto;
+      padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+    }
+    #lobby {
+      flex: 0 0 auto;
+      padding-bottom: 8px;
+    }
+    .lobby-wrap {
+      position: relative;
+      z-index: 2;
+    }
+    .lobby-card {
+      box-sizing: border-box;
+    }
+    #create, #join {
+      position: relative;
+      z-index: 3;
+      flex-shrink: 0;
+      min-height: 50px;
+    }
+  }
+
+  @media (max-width: 520px) {
+    body {
+      padding-bottom: calc(82px + env(safe-area-inset-bottom, 0px));
+    }
+    .lobby-wrap {
+      margin-bottom: 10px;
+    }
+  }
+</style>
 </head>
 <body>
   <canvas id="bgfx"></canvas>
