@@ -912,18 +912,20 @@
 
   /* Warm wooden board like the supplied reference image. */
   #board {
-    background: #c18a5d;
-    box-shadow: 0 0 0 1px rgba(64,35,18,.72), 0 18px 40px rgba(0,0,0,.30), inset 0 0 45px rgba(72,38,17,.18);
+    /* Dark brown fills the four cut-out/corner areas so they stay distinct from the playing squares. */
+    background: #5a3826;
+    box-shadow: 0 0 0 1px rgba(45,25,14,.92), 0 18px 40px rgba(0,0,0,.30), inset 0 0 45px rgba(35,18,9,.28);
   }
   .sq.light { background: #f5d9aa; }
   .sq.dark { background: #bf885d; }
   .sq.picked { background: #efd27f; }
 
   /* Stronger reference-piece colors; piece shapes/glyphs remain unchanged. */
-  .red .piece, .piece.red { color: #e53935; }
-  .blue .piece, .piece.blue { color: #1976d2; }
-  .gold .piece, .piece.gold { color: #f2b400; }
-  .green .piece, .piece.green { color: #12c978; }
+  #board .piece.red { color: #e53935; }
+  #board .piece.blue { color: #1976d2; }
+  #board .piece.gold, #board .piece.yellow { color: #f2b400; }
+  #board .piece.green { color: #12c978; }
+  #board .piece.dead { color: #6f5a4b; opacity: .55; filter: grayscale(1); }
 
   /* Piece squares contain chess glyphs only — never player-name text. */
   #board .sq { text-shadow: 0 2px 2px rgba(0,0,0,.18); }
@@ -1189,7 +1191,13 @@
           if (piece) {
             el.classList.add(piece.dead ? "dead" : piece.color);
             if (checkedKings.has(r + "," + c)) el.classList.add("incheck");
-            el.textContent = GLYPH[piece.type] + "\uFE0E";
+
+            // Keep the existing chess glyphs/game logic, but wrap each piece in a
+            // color class so the four players can have their own piece colors.
+            const pieceEl = document.createElement("span");
+            pieceEl.className = `piece ${piece.color}${piece.dead ? " dead" : ""}`;
+            pieceEl.textContent = GLYPH[piece.type] + "\uFE0E";
+            el.appendChild(pieceEl);
           }
           if (selected && selected.r === r && selected.c === c) el.classList.add("picked");
           if (targets.some(([tr, tc]) => tr === r && tc === c)) el.classList.add(piece ? "capture" : "target");
