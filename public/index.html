@@ -861,167 +861,73 @@
   .friends-note { color:var(--gold); font-size:12px; min-height:1.3em; margin-top:12px; }
   @media (max-width:560px) { .friends-card { padding:17px; } .friends-search { flex-direction:column; } }
 
-  .friend-requests-section { margin-top:18px; padding-top:14px; border-top:1px solid rgba(255,255,255,.08); }
-  .friend-section-title { font-size:11px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin-bottom:9px; }
-  .friend-request-row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:11px 12px; border:1px solid rgba(245,179,1,.22); border-radius:12px; background:linear-gradient(135deg,rgba(245,179,1,.08),rgba(255,255,255,.025)); }
-  .friend-request-actions { display:flex; gap:6px; flex-shrink:0; }
-  .friend-request-actions .premium-button { min-width:72px; }
-  .friend-request-popup { position:fixed; top:calc(18px + env(safe-area-inset-top,0px)); left:50%; transform:translateX(-50%); width:min(calc(100vw - 28px),430px); z-index:100; padding:15px; border:1px solid rgba(245,179,1,.35); border-radius:18px; background:linear-gradient(145deg,rgba(25,29,40,.98),rgba(10,13,20,.98)); box-shadow:0 24px 70px rgba(0,0,0,.62),0 0 35px rgba(245,179,1,.08); backdrop-filter:blur(18px); }
-  .friend-request-popup-title { font-weight:800; font-size:15px; margin-bottom:5px; }
-  .friend-request-popup-text { color:var(--muted); font-size:12px; line-height:1.45; }
-  .friend-request-popup-actions { display:flex; gap:8px; margin-top:12px; }
-  .friend-request-popup-actions .premium-button { flex:1; }
-  .game-invite-popup { position:fixed; top:calc(18px + env(safe-area-inset-top,0px)); left:50%; transform:translateX(-50%); width:min(calc(100vw - 28px),430px); z-index:101; padding:15px; border:1px solid rgba(59,130,246,.35); border-radius:18px; background:linear-gradient(145deg,rgba(25,29,40,.98),rgba(10,13,20,.98)); box-shadow:0 24px 70px rgba(0,0,0,.62),0 0 35px rgba(59,130,246,.08); backdrop-filter:blur(18px); }
-  .game-invite-popup-title { font-weight:800; font-size:15px; margin-bottom:5px; }
-  .game-invite-popup-text { color:var(--muted); font-size:12px; line-height:1.45; }
-  .game-invite-popup-actions { display:flex; gap:8px; margin-top:12px; }
-  .game-invite-popup-actions .premium-button { flex:1; }
-  .friend-actions { display:flex; gap:6px; flex-shrink:0; }
-  .friend-actions .premium-button { min-width:68px; }
-  @media (max-width:560px) {
-    .friend-request-row { align-items:flex-start; }
-    .friend-request-actions { flex-direction:column; }
-    .friend-request-actions .premium-button { min-width:68px; }
-  }
 
 
-
-/* FINAL MOBILE LOBBY FIX — keep premium UI, let every lobby card grow naturally */
+/* Mobile lobby visibility fix */
 @media (max-width: 760px) {
-  html, body {
-    height: auto !important;
-    min-height: 100% !important;
-  }
+  html { height: auto; min-height: 100%; }
   body {
-    display: block !important;
-    overflow-x: hidden !important;
-    overflow-y: auto !important;
-    padding: calc(12px + env(safe-area-inset-top, 0px)) 14px calc(110px + env(safe-area-inset-bottom, 0px)) !important;
+    height: auto;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    align-items: center;
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
   }
-  .brand,
-  .account-panel,
-  .lobby-wrap,
-  .lobby-card,
-  .lobby-head,
-  .or-divider {
-    flex-shrink: 0 !important;
-  }
+  .brand, .account-panel, .lobby-wrap { flex-shrink: 0; }
   .lobby-wrap {
-    display: grid !important;
-    grid-template-columns: minmax(0, 1fr) !important;
-    width: 100% !important;
-    max-width: 560px !important;
-    margin: 4px auto 0 !important;
-    gap: 14px !important;
-    align-items: start !important;
-    justify-items: stretch !important;
-    overflow: visible !important;
-  }
-  .lobby-head {
-    width: 100% !important;
-    min-width: 0 !important;
+    width: 100%;
+    max-height: none;
+    overflow: visible;
+    padding-bottom: 8px;
   }
   .lobby-card {
-    width: 100% !important;
-    max-width: none !important;
-    min-width: 0 !important;
-    min-height: 0 !important;
-    height: auto !important;
-    max-height: none !important;
-    overflow: visible !important;
-    box-sizing: border-box !important;
-    padding: 22px 18px !important;
-    gap: 16px !important;
-  }
-  .lobby-card .field,
-  .lobby-card .row,
-  .lobby-card .segmented,
-  .lobby-card .premium-button {
-    min-width: 0 !important;
-  }
-  .lobby-card .row.two-col {
-    display: grid !important;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
-  }
-  #create,
-  #join {
-    display: block !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    width: 100% !important;
-    min-height: 50px !important;
-    height: auto !important;
-    position: relative !important;
-    z-index: 20 !important;
-    flex: none !important;
-    margin-top: 2px !important;
-  }
-  .or-divider {
-    order: initial !important;
-    justify-self: center !important;
-  }
-}
-
-@media (max-width: 430px) {
-  .lobby-card { padding: 20px 16px !important; }
-  .lobby-card .row.two-col { gap: 10px !important; }
-  .seg-btn { padding-left: 6px !important; padding-right: 6px !important; }
-}
-
-
-
-/* ---------- Board screen / view navigation ---------- */
-#game {
-  position: relative;
-  width: 100%;
-  box-sizing: border-box;
-  padding-top: 8px;
-}
-.game-view-topbar {
-  width: min(96vw, 900px);
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  margin: 0 auto 4px;
-  padding: 0 2px;
-  box-sizing: border-box;
-}
-.game-back-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  min-height: 42px;
-  padding: 9px 15px;
-  border-radius: 12px;
-  font-weight: 800;
-  font-size: 13px;
-  letter-spacing: .01em;
-}
-body.game-screen #lobby,
-body.game-screen #account {
-  display: none !important;
-}
-body.game-screen #game {
-  display: flex !important;
-  flex-direction: column;
-  align-items: center;
-}
-@media (max-width: 760px) {
-  #game {
-    padding: 6px 0 calc(18px + env(safe-area-inset-bottom, 0px));
-  }
-  .game-view-topbar {
     width: 100%;
-    padding: 0 14px;
-    margin-bottom: 5px;
+    max-width: 560px;
+    flex: none;
   }
-  .game-back-btn {
-    min-height: 44px;
-    padding: 9px 14px;
+  #create, #join {
+    position: relative;
+    z-index: 5;
+    min-height: 48px;
+    flex-shrink: 0;
+  }
+  .note-banner {
+    pointer-events: none;
   }
 }
 
+
+  /* ===== REFERENCE BOARD COLORS — VISUAL ONLY ===== */
+  :root {
+    --red: #e53935;
+    --red-soft: rgba(229,57,53,0.35);
+    --blue: #1976d2;
+    --blue-soft: rgba(25,118,210,0.35);
+    --gold: #f2b400;
+    --gold-soft: rgba(242,180,0,0.35);
+    --green: #12c978;
+    --green-soft: rgba(18,201,120,0.35);
+  }
+
+  /* Warm wooden board like the supplied reference image. */
+  #board {
+    background: #c18a5d;
+    box-shadow: 0 0 0 1px rgba(64,35,18,.72), 0 18px 40px rgba(0,0,0,.30), inset 0 0 45px rgba(72,38,17,.18);
+  }
+  .sq.light { background: #f5d9aa; }
+  .sq.dark { background: #bf885d; }
+  .sq.picked { background: #efd27f; }
+
+  /* Stronger reference-piece colors; piece shapes/glyphs remain unchanged. */
+  .red .piece, .piece.red { color: #e53935; }
+  .blue .piece, .piece.blue { color: #1976d2; }
+  .gold .piece, .piece.gold { color: #f2b400; }
+  .green .piece, .piece.green { color: #12c978; }
+
+  /* Piece squares contain chess glyphs only — never player-name text. */
+  #board .sq { text-shadow: 0 2px 2px rgba(0,0,0,.18); }
+  #board .sq .piece { text-shadow: 0 2px 2px rgba(0,0,0,.18); }
 </style>
 </head>
 <body>
@@ -1112,9 +1018,6 @@ body.game-screen #game {
   </section>
 
   <section id="game" hidden class="arena-wrap">
-    <div class="game-view-topbar">
-      <button id="gameBack" class="premium-button ghost game-back-btn" type="button" aria-label="Back to lobby">← Back</button>
-    </div>
     <div id="roomBanner" class="room-banner glass-panel" hidden>
       <div>
         <div class="room-code-label">Room code</div>
@@ -1171,34 +1074,11 @@ body.game-screen #game {
         <input id="friendSearch" maxlength="20" placeholder="Search username" autocomplete="off">
         <button id="addFriend" class="premium-button primary small" type="button">Add Friend</button>
       </div>
-      <div id="friendRequestsSection" class="friend-requests-section" hidden>
-        <div class="friend-section-title">Pending Requests</div>
-        <div id="friendRequestsList" class="friends-list" style="margin-top:0"></div>
-      </div>
-      <div class="friend-requests-section" style="margin-top:18px">
-        <div class="friend-section-title">Your Friends</div>
-        <div id="friendsList" class="friends-list" style="margin-top:0"><div class="friends-empty">Sign in to load your friends.</div></div>
-      </div>
+      <div id="friendsList" class="friends-list"><div class="friends-empty">Sign in to load your friends.</div></div>
       <div id="friendsNote" class="friends-note"></div>
     </div>
   </div>
 
-  <div id="friendRequestPopup" class="friend-request-popup" hidden>
-    <div class="friend-request-popup-title">New friend request</div>
-    <div id="friendRequestPopupText" class="friend-request-popup-text"></div>
-    <div class="friend-request-popup-actions">
-      <button id="friendPopupAccept" class="premium-button primary small" type="button">Accept</button>
-      <button id="friendPopupDecline" class="premium-button ghost small" type="button">Decline</button>
-    </div>
-  </div>
-  <div id="gameInvitePopup" class="game-invite-popup" hidden>
-    <div class="game-invite-popup-title">Game invitation</div>
-    <div id="gameInvitePopupText" class="game-invite-popup-text"></div>
-    <div class="game-invite-popup-actions">
-      <button id="gameInviteJoin" class="premium-button primary small" type="button">Join game</button>
-      <button id="gameInviteDecline" class="premium-button ghost small" type="button">Decline</button>
-    </div>
-  </div>
   <div id="toasts" class="toast-stack"></div>
   <div id="note" class="note-banner"></div>
   <div id="overlay" class="overlay" hidden></div>
@@ -1621,7 +1501,7 @@ body.game-screen #game {
   function join(code) {
     code = code.trim().toUpperCase();
     if (!code) return;
-    const savedColor = localStorage.getItem("seat-" + code) || null;
+    const savedColor = sessionStorage.getItem("seat-" + code) || null;
     socket.emit("joinRoom", { code, color: savedColor, name: myName() });
   }
 
@@ -1634,7 +1514,7 @@ body.game-screen #game {
     const code = location.hash.slice(1).toUpperCase();
     if (!code) return;
     $("code").value = code;
-    if (localStorage.getItem("seat-" + code) !== null) {
+    if (sessionStorage.getItem("seat-" + code) !== null) {
       join(code);                                    // you were already in this room
     } else {
       $("note").textContent = "Type your name, then press Join room.";
@@ -1646,14 +1526,12 @@ body.game-screen #game {
 
   socket.on("joined", ({ code, color }) => {
     me = { code, color };
-    localStorage.setItem("seat-" + code, color || "");
+    sessionStorage.setItem("seat-" + code, color || "");
     location.hash = code;
     $("note").textContent = "";
     $("account").hidden = true;
     $("lobby").hidden = true;
     $("game").hidden = false;
-    document.body.classList.add("game-screen");
-    window.scrollTo({ top: 0, behavior: "instant" });
     $("roomBanner").hidden = false;
     $("roomCodeText").textContent = code;
     $("roomStatus").textContent = "Waiting for players";
@@ -1669,16 +1547,6 @@ body.game-screen #game {
     targets = [];
     if (typeof handleTransitions === "function") handleTransitions(prevRoom, room);
     render();
-  });
-
-  $("gameBack").addEventListener("click", () => {
-    // Return to the lobby without disconnecting from the room.
-    // Creating/joining another room will automatically move this socket.
-    document.body.classList.remove("game-screen");
-    $("game").hidden = true;
-    $("lobby").hidden = false;
-    $("account").hidden = false;
-    window.scrollTo({ top: 0, behavior: "smooth" });
   });
 
   $("create").addEventListener("click", () => {
@@ -1722,31 +1590,17 @@ body.game-screen #game {
 
 
 
-  /* ---------- Friends / direct invite + incoming requests ---------- */
+  /* ---------- Friends / direct invite (Step 3) ---------- */
   let friendsCache = [];
-  let pendingRequestsCache = [];
-  let friendRequestPollTimer = null;
-  let seenPendingRequestIds = new Set();
-  let pendingRequestsInitialized = false;
-  let popupRequestId = null;
-  let gameInvitesCache = [];
-  let seenGameInviteIds = new Set();
-  let gameInvitesInitialized = false;
-  let popupGameInviteId = null;
-
   function openFriendsPanel() {
     const panel = $("friendsPanel");
     if (!panel) return;
     panel.hidden = false;
     $("friendsNote").textContent = "";
     loadFriends();
-    loadPendingRequests(true);
-    loadGameInvites(true);
   }
-
   function closeFriendsPanel() { $("friendsPanel").hidden = true; }
   function friendMessage(message) { $("friendsNote").textContent = message; }
-
   function renderFriends() {
     const list = $("friendsList");
     if (!list) return;
@@ -1754,441 +1608,48 @@ body.game-screen #game {
       list.innerHTML = '<div class="friends-empty">No friends yet. Search a username above to send a request.</div>';
       return;
     }
-
     list.innerHTML = friendsCache.map((f) => `
       <div class="friend-row">
-        <div style="min-width:0">
-          <div class="friend-name">${esc(f.username)}</div>
-          <div class="friend-status">${esc(f.status || "Friend")}</div>
-        </div>
-        <div class="friend-actions">
-          <button class="premium-button ghost small" type="button" data-invite-user="${esc(f.id)}">Invite</button>
-          <button class="premium-button ghost small danger" type="button" data-remove-friend="${esc(f.id)}">Remove</button>
-        </div>
+        <div style="min-width:0"><div class="friend-name">${esc(f.username)}</div><div class="friend-status">${esc(f.status || "Friend")}</div></div>
+        <button class="premium-button ghost small" type="button" data-invite-user="${esc(f.id)}">Invite</button>
       </div>`).join("");
-
     list.querySelectorAll("[data-invite-user]").forEach((btn) => btn.addEventListener("click", () => {
-      sendGameInvite(btn.dataset.inviteUser);
+      if (!me.code) { friendMessage("Create or join a room first."); return; }
+      const link = location.href.split("#")[0] + "#" + me.code;
+      navigator.clipboard?.writeText(link).then(() => friendMessage("Invite link copied. Send it to your friend."), () => friendMessage("Copy this invite link: " + link));
     }));
-    list.querySelectorAll("[data-remove-friend]").forEach((btn) => btn.addEventListener("click", () => {
-      removeFriend(btn.dataset.removeFriend);
-    }));
   }
-
-  function renderPendingRequests() {
-    const section = $("friendRequestsSection");
-    const list = $("friendRequestsList");
-    if (!section || !list) return;
-
-    section.hidden = pendingRequestsCache.length === 0;
-    if (!pendingRequestsCache.length) {
-      list.innerHTML = "";
-      return;
-    }
-
-    list.innerHTML = pendingRequestsCache.map((r) => `
-      <div class="friend-request-row">
-        <div style="min-width:0">
-          <div class="friend-name">${esc(r.username)}</div>
-          <div class="friend-status">Wants to be your friend</div>
-        </div>
-        <div class="friend-request-actions">
-          <button class="premium-button primary small" type="button" data-request-action="accept" data-request-id="${esc(r.id)}">Accept</button>
-          <button class="premium-button ghost small" type="button" data-request-action="decline" data-request-id="${esc(r.id)}">Decline</button>
-        </div>
-      </div>`).join("");
-
-    list.querySelectorAll("[data-request-action]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        updateFriendRequest(btn.dataset.requestId, btn.dataset.requestAction);
-      });
-    });
-  }
-
-  async function fetchPendingRequests() {
-    const { data: { session } } = await sb.auth.getSession();
-    if (!session) return { data: [], error: null };
-
-    const { data: requests, error } = await sb.from("friendships")
-      .select("id, user_id, status, created_at")
-      .eq("friend_id", session.user.id)
-      .eq("status", "pending")
-      .order("created_at", { ascending: true });
-
-    if (error) return { data: [], error };
-
-    const ids = [...new Set((requests || []).map(r => r.user_id).filter(Boolean))];
-    if (!ids.length) return { data: [], error: null };
-
-    const { data: profiles, error: profileError } = await sb.from("profiles")
-      .select("id, username")
-      .in("id", ids);
-
-    if (profileError) return { data: [], error: profileError };
-
-    const byId = Object.fromEntries((profiles || []).map(p => [String(p.id), p.username]));
-    return {
-      data: (requests || []).map(r => ({
-        ...r,
-        profiles: { username: byId[String(r.user_id)] || "Unknown" }
-      })),
-      error: null
-    };
-  }
-
-  async function loadPendingRequests(showErrors = false) {
-    const { data, error } = await fetchPendingRequests();
-
-    if (error) {
-      console.error("Pending friend requests:", error);
-      if (showErrors) {
-        friendMessage("Could not load incoming requests. Check the friendships policies/foreign keys.");
-      }
-      return;
-    }
-
-    const rows = (data || []).map((row) => ({
-      id: String(row.id),
-      userId: row.user_id,
-      username: row.profiles?.username || "Unknown"
-    }));
-
-    const previousIds = new Set(pendingRequestsCache.map((r) => String(r.id)));
-    pendingRequestsCache = rows;
-    renderPendingRequests();
-
-    // On first load, show an existing request too.
-    // Later polls only pop up genuinely new requests.
-    const newRequest = rows.find((r) =>
-      !seenPendingRequestIds.has(String(r.id)) &&
-      (!pendingRequestsInitialized || !previousIds.has(String(r.id)))
-    );
-
-    rows.forEach((r) => seenPendingRequestIds.add(String(r.id)));
-
-    if (newRequest) {
-      showFriendRequestPopup(newRequest);
-    }
-
-    pendingRequestsInitialized = true;
-  }
-
-  function showFriendRequestPopup(request) {
-    popupRequestId = String(request.id);
-    const popup = $("friendRequestPopup");
-    if (!popup) return;
-    $("friendRequestPopupText").textContent = `${request.username} sent you a friend request.`;
-    popup.hidden = false;
-  }
-
-  function hideFriendRequestPopup() {
-    popupRequestId = null;
-    $("friendRequestPopup").hidden = true;
-  }
-
-  async function updateFriendRequest(id, action) {
-    const { data: { session } } = await sb.auth.getSession();
-    if (!session) return;
-
-    const nextStatus = action === "accept" ? "accepted" : "rejected";
-
-    const { error } = await sb.from("friendships")
-      .update({ status: nextStatus })
-      .eq("id", id)
-      .eq("friend_id", session.user.id)
-      .eq("status", "pending");
-
-    if (error) {
-      console.error("Update friend request:", error);
-      friendMessage("Could not update the request. Check your Supabase UPDATE policy.");
-      return;
-    }
-
-    hideFriendRequestPopup();
-    friendMessage(action === "accept" ? "Friend request accepted." : "Friend request declined.");
-    await loadPendingRequests(false);
-    await loadFriends();
-  }
-
   async function loadFriends() {
     const { data: { session } } = await sb.auth.getSession();
-    if (!session) {
-      friendsCache = [];
-      pendingRequestsCache = [];
-      renderFriends();
-      renderPendingRequests();
-      friendMessage("Please sign in first.");
-      return;
-    }
-
-    // A friendship is one accepted row. Either side can be the sender, so
-    // load accepted rows in both directions and display the other user.
-    const { data: friendships, error } = await sb.from("friendships")
-      .select("id, user_id, friend_id, status")
-      .eq("status", "accepted")
-      .or(`user_id.eq.${session.user.id},friend_id.eq.${session.user.id}`);
-
+    if (!session) { friendsCache = []; renderFriends(); friendMessage("Please sign in first."); return; }
+    const { data, error } = await sb.from("friendships").select("friend_id, status, profiles:friend_id(username)").eq("user_id", session.user.id).eq("status", "accepted");
     if (error) {
       friendsCache = [];
       renderFriends();
-      friendMessage("Could not load friends: " + (error.message || "database error"));
+      friendMessage("Friends database is not configured yet. Complete the Step 3 SQL setup.");
       return;
     }
-
-    const ids = [...new Set((friendships || []).map(r =>
-      String(r.user_id) === String(session.user.id) ? r.friend_id : r.user_id
-    ).filter(Boolean))];
-    let profiles = [];
-    if (ids.length) {
-      const profileResult = await sb.from("profiles").select("id, username").in("id", ids);
-      if (profileResult.error) {
-        friendsCache = [];
-        renderFriends();
-        friendMessage("Could not load friend profiles: " + (profileResult.error.message || "database error"));
-        return;
-      }
-      profiles = profileResult.data || [];
-    }
-
-    const byId = Object.fromEntries(profiles.map(p => [String(p.id), p.username]));
-    friendsCache = ids.map((id) => ({
-      id,
-      username: byId[String(id)] || "Unknown",
-      status: "Friend"
-    }));
-
+    friendsCache = (data || []).map((row) => ({ id: row.friend_id, username: row.profiles?.username || "Unknown", status: "Friend" }));
     renderFriends();
   }
-
-  async function removeFriend(friendId) {
-    const { data: { session } } = await sb.auth.getSession();
-    if (!session) { friendMessage("Please sign in first."); return; }
-    const friend = friendsCache.find(f => String(f.id) === String(friendId));
-    if (!friend) return;
-    if (!confirm(`Remove ${friend.username} from your friends?`)) return;
-
-    const { error } = await sb.from("friendships")
-      .delete()
-      .eq("status", "accepted")
-      .or(`and(user_id.eq.${session.user.id},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${session.user.id})`);
-
-    if (error) {
-      console.error("Remove friend:", error);
-      friendMessage("Could not remove friend. Check your Supabase DELETE policy.");
-      return;
-    }
-    friendMessage(`${friend.username} removed from your friends.`);
-    await loadFriends();
-  }
-
-  async function sendGameInvite(friendId) {
-    if (!me.code) { friendMessage("Create or join a room first."); return; }
-    const { data: { session } } = await sb.auth.getSession();
-    if (!session) { friendMessage("Please sign in first."); return; }
-
-    const { data: existing, error: existingError } = await sb.from("game_invites")
-      .select("id")
-      .eq("inviter_id", session.user.id)
-      .eq("invitee_id", friendId)
-      .eq("status", "pending")
-      .limit(1);
-
-    if (existingError) {
-      console.error("Check game invite:", existingError);
-      friendMessage("Game invitations are not configured yet. Run the supplied Step 4 SQL.");
-      return;
-    }
-    if (existing?.length) {
-      friendMessage("A game invitation is already pending for this friend.");
-      return;
-    }
-
-    const { error } = await sb.from("game_invites").insert({
-      inviter_id: session.user.id,
-      invitee_id: friendId,
-      room_code: me.code,
-      status: "pending"
-    });
-
-    if (error) {
-      console.error("Send game invite:", error);
-      friendMessage("Could not send game invitation. Run the supplied Step 4 SQL and refresh.");
-      return;
-    }
-
-    const friend = friendsCache.find(f => String(f.id) === String(friendId));
-    friendMessage("Game invitation sent to " + (friend?.username || "your friend") + ".");
-  }
-
-  async function fetchGameInvites() {
-    const { data: { session } } = await sb.auth.getSession();
-    if (!session) return { data: [], error: null };
-
-    const { data: invites, error } = await sb.from("game_invites")
-      .select("id, inviter_id, invitee_id, room_code, status, created_at")
-      .eq("invitee_id", session.user.id)
-      .eq("status", "pending")
-      .order("created_at", { ascending: true });
-    if (error) return { data: [], error };
-
-    const ids = [...new Set((invites || []).map(i => i.inviter_id).filter(Boolean))];
-    if (!ids.length) return { data: [], error: null };
-    const { data: profiles, error: profileError } = await sb.from("profiles")
-      .select("id, username")
-      .in("id", ids);
-    if (profileError) return { data: [], error: profileError };
-
-    const byId = Object.fromEntries((profiles || []).map(p => [String(p.id), p.username]));
-    return {
-      data: (invites || []).map(i => ({
-        ...i,
-        username: byId[String(i.inviter_id)] || "Unknown"
-      })),
-      error: null
-    };
-  }
-
-  async function loadGameInvites(showErrors = false) {
-    const { data, error } = await fetchGameInvites();
-    if (error) {
-      console.error("Game invitations:", error);
-      if (showErrors && error.code !== "42P01") {
-        friendMessage("Could not load game invitations. Check the Step 4 SQL setup.");
-      }
-      return;
-    }
-
-    const rows = (data || []).map(r => ({
-      id: String(r.id),
-      senderId: r.inviter_id,
-      roomCode: r.room_code,
-      username: r.username || "Unknown"
-    }));
-    gameInvitesCache = rows;
-
-    const newInvite = rows.find(r =>
-      !seenGameInviteIds.has(String(r.id)) &&
-      (!gameInvitesInitialized || !seenGameInviteIds.has(String(r.id)))
-    );
-    rows.forEach(r => seenGameInviteIds.add(String(r.id)));
-
-    if (newInvite) showGameInvitePopup(newInvite);
-    gameInvitesInitialized = true;
-  }
-
-  function showGameInvitePopup(invite) {
-    popupGameInviteId = String(invite.id);
-    const popup = $("gameInvitePopup");
-    if (!popup) return;
-    $("gameInvitePopupText").textContent = `${invite.username} invited you to a game (Room ${invite.roomCode}).`;
-    popup.hidden = false;
-  }
-
-  function hideGameInvitePopup() {
-    popupGameInviteId = null;
-    $("gameInvitePopup").hidden = true;
-  }
-
-  async function updateGameInvite(id, action) {
-    const { data: { session } } = await sb.auth.getSession();
-    if (!session || !id) return;
-    const invite = gameInvitesCache.find(i => String(i.id) === String(id));
-    if (!invite) { hideGameInvitePopup(); return; }
-
-    const nextStatus = action === "join" ? "accepted" : "rejected";
-    const { error } = await sb.from("game_invites")
-      .update({ status: nextStatus })
-      .eq("id", id)
-      .eq("invitee_id", session.user.id)
-      .eq("status", "pending");
-
-    if (error) {
-      console.error("Update game invite:", error);
-      friendMessage("Could not update game invitation. Check the Step 4 SQL policies.");
-      return;
-    }
-
-    hideGameInvitePopup();
-    gameInvitesCache = gameInvitesCache.filter(i => String(i.id) !== String(id));
-    if (action === "join") {
-      friendMessage("Joining " + invite.username + "'s game...");
-      join(invite.roomCode);
-    } else {
-      friendMessage("Game invitation declined.");
-    }
-    loadGameInvites(false);
-  }
-
   async function addFriend() {
     const username = $("friendSearch").value.trim().slice(0,20);
     if (!username) { friendMessage("Enter a username first."); return; }
-
     const { data: { session } } = await sb.auth.getSession();
     if (!session) { friendMessage("Please sign in first."); return; }
-
-    const { data: target, error: findError } = await sb.from("profiles")
-      .select("id, username")
-      .ilike("username", username)
-      .maybeSingle();
-
-    if (findError || !target) {
-      friendMessage("Username not found.");
-      return;
-    }
-
-    if (target.id === session.user.id) {
-      friendMessage("You cannot add yourself.");
-      return;
-    }
-
-    const { error } = await sb.from("friendships").insert({
-      user_id: session.user.id,
-      friend_id: target.id,
-      status: "pending"
-    });
-
-    if (error) {
-      friendMessage(error.code === "23505" ? "Request already exists." : "Could not send request. Check Step 3 SQL setup.");
-      return;
-    }
-
+    const { data: target, error: findError } = await sb.from("profiles").select("id, username").ilike("username", username).maybeSingle();
+    if (findError || !target) { friendMessage("Username not found."); return; }
+    if (target.id === session.user.id) { friendMessage("You cannot add yourself."); return; }
+    const { error } = await sb.from("friendships").insert({ user_id: session.user.id, friend_id: target.id, status: "pending" });
+    if (error) { friendMessage(error.code === "23505" ? "Request already exists." : "Could not send request. Check Step 3 SQL setup."); return; }
     $("friendSearch").value = "";
     friendMessage("Friend request sent to " + target.username + ".");
   }
-
-  function startFriendRequestPolling() {
-    if (friendRequestPollTimer) clearInterval(friendRequestPollTimer);
-    friendRequestPollTimer = setInterval(() => {
-      loadPendingRequests(false);
-      loadGameInvites(false);
-    }, 3000);
-    loadPendingRequests(false);
-    loadGameInvites(false);
-  }
-
   $("friendsBtn")?.addEventListener("click", openFriendsPanel);
   $("friendsGameBtn")?.addEventListener("click", openFriendsPanel);
   $("closeFriends")?.addEventListener("click", closeFriendsPanel);
   $("addFriend")?.addEventListener("click", addFriend);
-
-  $("friendPopupAccept")?.addEventListener("click", () => {
-    if (popupRequestId) updateFriendRequest(popupRequestId, "accept");
-  });
-  $("friendPopupDecline")?.addEventListener("click", () => {
-    if (popupRequestId) updateFriendRequest(popupRequestId, "decline");
-  });
-  $("gameInviteJoin")?.addEventListener("click", () => {
-    if (popupGameInviteId) updateGameInvite(popupGameInviteId, "join");
-  });
-  $("gameInviteDecline")?.addEventListener("click", () => {
-    if (popupGameInviteId) updateGameInvite(popupGameInviteId, "decline");
-  });
-
-  $("friendsPanel")?.addEventListener("click", (e) => {
-    if (e.target === $("friendsPanel")) closeFriendsPanel();
-  });
-
-  startFriendRequestPolling();
+  $("friendsPanel")?.addEventListener("click", (e) => { if (e.target === $("friendsPanel")) closeFriendsPanel(); });
 
   /* ---------- Rotating the board ---------- */
   // Turns a square on the screen (i, j) into the real board square (r, c)
