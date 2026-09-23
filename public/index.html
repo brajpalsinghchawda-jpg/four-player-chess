@@ -1785,11 +1785,31 @@ body.game-screen #game {
     const { data: { session } } = await sb.auth.getSession();
     if (!session) return { data: [], error: null };
 
-    return await sb.from("friendships")
-      .select("id, user_id, status, profiles!friendships_user_id_fkey(username)")
+    const { data: requests, error } = await sb.from("friendships")
+      .select("id, user_id, status, created_at")
       .eq("friend_id", session.user.id)
       .eq("status", "pending")
       .order("created_at", { ascending: true });
+
+    if (error) return { data: [], error };
+
+    const ids = [...new Set((requests || []).map(r => r.user_id).filter(Boolean))];
+    if (!ids.length) return { data: [], error: null };
+
+    const { data: profiles, error: profileError } = await sb.from("profiles")
+      .select("id, username")
+      .in("id", ids);
+
+    if (profileError) return { data: [], error: profileError };
+
+    const byId = Object.fromEntries((profiles || []).map(p => [String(p.id), p.username]));
+    return {
+      data: (requests || []).map(r => ({
+        ...r,
+        profiles: { username: byId[String(r.user_id)] || "Unknown" }
+      })),
+      error: null
+    };
   }
 
   async function loadPendingRequests(showErrors = false) {
@@ -1877,21 +1897,35 @@ body.game-screen #game {
       return;
     }
 
-    const { data, error } = await sb.from("friendships")
-      .select("friend_id, status, profiles!friendships_friend_id_fkey(username)")
+    const { data: friendships, error } = await sb.from("friendships")
+      .select("friend_id, status")
       .eq("user_id", session.user.id)
       .eq("status", "accepted");
 
     if (error) {
       friendsCache = [];
       renderFriends();
-      friendMessage("Friends database is not configured yet. Complete the Step 3 SQL setup.");
+      friendMessage("Could not load friends: " + (error.message || "database error"));
       return;
     }
 
-    friendsCache = (data || []).map((row) => ({
+    const ids = [...new Set((friendships || []).map(r => r.friend_id).filter(Boolean))];
+    let profiles = [];
+    if (ids.length) {
+      const profileResult = await sb.from("profiles").select("id, username").in("id", ids);
+      if (profileResult.error) {
+        friendsCache = [];
+        renderFriends();
+        friendMessage("Could not load friend profiles: " + (profileResult.error.message || "database error"));
+        return;
+      }
+      profiles = profileResult.data || [];
+    }
+
+    const byId = Object.fromEntries(profiles.map(p => [String(p.id), p.username]));
+    friendsCache = (friendships || []).map((row) => ({
       id: row.friend_id,
-      username: row.profiles?.username || "Unknown",
+      username: byId[String(row.friend_id)] || "Unknown",
       status: "Friend"
     }));
 
