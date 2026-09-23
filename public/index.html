@@ -844,6 +844,23 @@
     .controls-row { max-width:100%; border-radius:18px; }
   }
 
+
+  /* ---------- Friends / direct invite panel ---------- */
+  .friends-panel { position:fixed; inset:0; z-index:75; display:flex; align-items:center; justify-content:center; padding:18px; background:rgba(4,5,8,.72); backdrop-filter:blur(8px); }
+  .friends-card { width:min(100%, 470px); max-height:min(82vh, 650px); overflow:auto; padding:22px; border:1px solid rgba(255,255,255,.13); background:linear-gradient(145deg,rgba(25,29,40,.98),rgba(10,13,20,.98)); box-shadow:0 30px 90px rgba(0,0,0,.58); border-radius:22px; }
+  .friends-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
+  .friends-head h2 { margin:0; font-size:22px; }
+  .friends-sub { color:var(--muted); font-size:12px; margin:4px 0 16px; }
+  .friends-search { display:flex; gap:8px; }
+  .friends-search input { min-width:0; }
+  .friends-list { display:flex; flex-direction:column; gap:8px; margin-top:16px; }
+  .friend-row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:11px 12px; border:1px solid rgba(255,255,255,.08); border-radius:12px; background:rgba(255,255,255,.035); }
+  .friend-name { font-size:13px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .friend-status { color:var(--muted-2); font-size:10px; margin-top:3px; }
+  .friends-empty { color:var(--muted); font-size:12px; text-align:center; padding:18px 8px; }
+  .friends-note { color:var(--gold); font-size:12px; min-height:1.3em; margin-top:12px; }
+  @media (max-width:560px) { .friends-card { padding:17px; } .friends-search { flex-direction:column; } }
+
 </style>
 </head>
 <body>
@@ -872,6 +889,7 @@
     </div>
     <div id="signedIn" class="row" hidden>
       <span id="whoami"></span>
+      <button id="friendsBtn" class="premium-button ghost small" type="button">Friends</button>
       <button id="signOut" class="premium-button ghost small" type="button">Sign out</button>
     </div>
     <div id="authNote"></div>
@@ -968,12 +986,31 @@
 
     <div class="controls-row">
       <span id="you" class="you-chip"></span>
+      <button id="friendsGameBtn" class="premium-button ghost small" type="button">Friends</button>
       <button id="invite" class="premium-button ghost small" type="button">Copy invite link</button>
       <button id="resign" class="premium-button ghost small danger" type="button" hidden>Resign</button>
       <button id="again" class="premium-button primary small" type="button" hidden>Play again</button>
     </div>
     <div id="last" class="last-move"></div>
   </section>
+
+
+
+  <div id="friendsPanel" class="friends-panel" hidden>
+    <div class="friends-card" role="dialog" aria-modal="true" aria-labelledby="friendsTitle">
+      <div class="friends-head">
+        <h2 id="friendsTitle">Friends & Invites</h2>
+        <button id="closeFriends" class="icon-btn" type="button" aria-label="Close friends panel">✕</button>
+      </div>
+      <p class="friends-sub">Search a username, send a friend request, and invite friends to your current room.</p>
+      <div class="friends-search">
+        <input id="friendSearch" maxlength="20" placeholder="Search username" autocomplete="off">
+        <button id="addFriend" class="premium-button primary small" type="button">Add Friend</button>
+      </div>
+      <div id="friendsList" class="friends-list"><div class="friends-empty">Sign in to load your friends.</div></div>
+      <div id="friendsNote" class="friends-note"></div>
+    </div>
+  </div>
 
   <div id="toasts" class="toast-stack"></div>
   <div id="note" class="note-banner"></div>
@@ -1483,6 +1520,69 @@
       $("note").textContent = "Room code: " + code;
     }
   });
+
+
+
+  /* ---------- Friends / direct invite (Step 3) ---------- */
+  let friendsCache = [];
+  function openFriendsPanel() {
+    const panel = $("friendsPanel");
+    if (!panel) return;
+    panel.hidden = false;
+    $("friendsNote").textContent = "";
+    loadFriends();
+  }
+  function closeFriendsPanel() { $("friendsPanel").hidden = true; }
+  function friendMessage(message) { $("friendsNote").textContent = message; }
+  function renderFriends() {
+    const list = $("friendsList");
+    if (!list) return;
+    if (!friendsCache.length) {
+      list.innerHTML = '<div class="friends-empty">No friends yet. Search a username above to send a request.</div>';
+      return;
+    }
+    list.innerHTML = friendsCache.map((f) => `
+      <div class="friend-row">
+        <div style="min-width:0"><div class="friend-name">${esc(f.username)}</div><div class="friend-status">${esc(f.status || "Friend")}</div></div>
+        <button class="premium-button ghost small" type="button" data-invite-user="${esc(f.id)}">Invite</button>
+      </div>`).join("");
+    list.querySelectorAll("[data-invite-user]").forEach((btn) => btn.addEventListener("click", () => {
+      if (!me.code) { friendMessage("Create or join a room first."); return; }
+      const link = location.href.split("#")[0] + "#" + me.code;
+      navigator.clipboard?.writeText(link).then(() => friendMessage("Invite link copied. Send it to your friend."), () => friendMessage("Copy this invite link: " + link));
+    }));
+  }
+  async function loadFriends() {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { friendsCache = []; renderFriends(); friendMessage("Please sign in first."); return; }
+    const { data, error } = await sb.from("friendships").select("friend_id, status, profiles:friend_id(username)").eq("user_id", session.user.id).eq("status", "accepted");
+    if (error) {
+      friendsCache = [];
+      renderFriends();
+      friendMessage("Friends database is not configured yet. Complete the Step 3 SQL setup.");
+      return;
+    }
+    friendsCache = (data || []).map((row) => ({ id: row.friend_id, username: row.profiles?.username || "Unknown", status: "Friend" }));
+    renderFriends();
+  }
+  async function addFriend() {
+    const username = $("friendSearch").value.trim().slice(0,20);
+    if (!username) { friendMessage("Enter a username first."); return; }
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { friendMessage("Please sign in first."); return; }
+    const { data: target, error: findError } = await sb.from("profiles").select("id, username").ilike("username", username).maybeSingle();
+    if (findError || !target) { friendMessage("Username not found."); return; }
+    if (target.id === session.user.id) { friendMessage("You cannot add yourself."); return; }
+    const { error } = await sb.from("friendships").insert({ user_id: session.user.id, friend_id: target.id, status: "pending" });
+    if (error) { friendMessage(error.code === "23505" ? "Request already exists." : "Could not send request. Check Step 3 SQL setup."); return; }
+    $("friendSearch").value = "";
+    friendMessage("Friend request sent to " + target.username + ".");
+  }
+  $("friendsBtn")?.addEventListener("click", openFriendsPanel);
+  $("friendsGameBtn")?.addEventListener("click", openFriendsPanel);
+  $("closeFriends")?.addEventListener("click", closeFriendsPanel);
+  $("addFriend")?.addEventListener("click", addFriend);
+  $("friendsPanel")?.addEventListener("click", (e) => { if (e.target === $("friendsPanel")) closeFriendsPanel(); });
 
   /* ---------- Rotating the board ---------- */
   // Turns a square on the screen (i, j) into the real board square (r, c)
