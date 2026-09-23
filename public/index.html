@@ -861,6 +861,22 @@
   .friends-note { color:var(--gold); font-size:12px; min-height:1.3em; margin-top:12px; }
   @media (max-width:560px) { .friends-card { padding:17px; } .friends-search { flex-direction:column; } }
 
+  .friend-requests-section { margin-top:18px; padding-top:14px; border-top:1px solid rgba(255,255,255,.08); }
+  .friend-section-title { font-size:11px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin-bottom:9px; }
+  .friend-request-row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:11px 12px; border:1px solid rgba(245,179,1,.22); border-radius:12px; background:linear-gradient(135deg,rgba(245,179,1,.08),rgba(255,255,255,.025)); }
+  .friend-request-actions { display:flex; gap:6px; flex-shrink:0; }
+  .friend-request-actions .premium-button { min-width:72px; }
+  .friend-request-popup { position:fixed; top:calc(18px + env(safe-area-inset-top,0px)); left:50%; transform:translateX(-50%); width:min(calc(100vw - 28px),430px); z-index:100; padding:15px; border:1px solid rgba(245,179,1,.35); border-radius:18px; background:linear-gradient(145deg,rgba(25,29,40,.98),rgba(10,13,20,.98)); box-shadow:0 24px 70px rgba(0,0,0,.62),0 0 35px rgba(245,179,1,.08); backdrop-filter:blur(18px); }
+  .friend-request-popup-title { font-weight:800; font-size:15px; margin-bottom:5px; }
+  .friend-request-popup-text { color:var(--muted); font-size:12px; line-height:1.45; }
+  .friend-request-popup-actions { display:flex; gap:8px; margin-top:12px; }
+  .friend-request-popup-actions .premium-button { flex:1; }
+  @media (max-width:560px) {
+    .friend-request-row { align-items:flex-start; }
+    .friend-request-actions { flex-direction:column; }
+    .friend-request-actions .premium-button { min-width:68px; }
+  }
+
 
 
 /* FINAL MOBILE LOBBY FIX — keep premium UI, let every lobby card grow naturally */
@@ -1148,11 +1164,23 @@ body.game-screen #game {
         <input id="friendSearch" maxlength="20" placeholder="Search username" autocomplete="off">
         <button id="addFriend" class="premium-button primary small" type="button">Add Friend</button>
       </div>
+      <div id="friendRequestsSection" class="friend-requests-section" hidden>
+        <div class="friend-section-title">Friend Requests</div>
+        <div id="friendRequestsList" class="friends-list" style="margin-top:0"></div>
+      </div>
       <div id="friendsList" class="friends-list"><div class="friends-empty">Sign in to load your friends.</div></div>
       <div id="friendsNote" class="friends-note"></div>
     </div>
   </div>
 
+  <div id="friendRequestPopup" class="friend-request-popup" hidden>
+    <div class="friend-request-popup-title">New friend request</div>
+    <div id="friendRequestPopupText" class="friend-request-popup-text"></div>
+    <div class="friend-request-popup-actions">
+      <button id="friendPopupAccept" class="premium-button primary small" type="button">Accept</button>
+      <button id="friendPopupDecline" class="premium-button ghost small" type="button">Decline</button>
+    </div>
+  </div>
   <div id="toasts" class="toast-stack"></div>
   <div id="note" class="note-banner"></div>
   <div id="overlay" class="overlay" hidden></div>
@@ -1676,17 +1704,26 @@ body.game-screen #game {
 
 
 
-  /* ---------- Friends / direct invite (Step 3) ---------- */
+  /* ---------- Friends / direct invite + incoming requests ---------- */
   let friendsCache = [];
+  let pendingRequestsCache = [];
+  let friendRequestPollTimer = null;
+  let seenPendingRequestIds = new Set();
+  let pendingRequestsInitialized = false;
+  let popupRequestId = null;
+
   function openFriendsPanel() {
     const panel = $("friendsPanel");
     if (!panel) return;
     panel.hidden = false;
     $("friendsNote").textContent = "";
     loadFriends();
+    loadPendingRequests(true);
   }
+
   function closeFriendsPanel() { $("friendsPanel").hidden = true; }
   function friendMessage(message) { $("friendsNote").textContent = message; }
+
   function renderFriends() {
     const list = $("friendsList");
     if (!list) return;
@@ -1694,48 +1731,235 @@ body.game-screen #game {
       list.innerHTML = '<div class="friends-empty">No friends yet. Search a username above to send a request.</div>';
       return;
     }
+
     list.innerHTML = friendsCache.map((f) => `
       <div class="friend-row">
-        <div style="min-width:0"><div class="friend-name">${esc(f.username)}</div><div class="friend-status">${esc(f.status || "Friend")}</div></div>
+        <div style="min-width:0">
+          <div class="friend-name">${esc(f.username)}</div>
+          <div class="friend-status">${esc(f.status || "Friend")}</div>
+        </div>
         <button class="premium-button ghost small" type="button" data-invite-user="${esc(f.id)}">Invite</button>
       </div>`).join("");
+
     list.querySelectorAll("[data-invite-user]").forEach((btn) => btn.addEventListener("click", () => {
       if (!me.code) { friendMessage("Create or join a room first."); return; }
       const link = location.href.split("#")[0] + "#" + me.code;
-      navigator.clipboard?.writeText(link).then(() => friendMessage("Invite link copied. Send it to your friend."), () => friendMessage("Copy this invite link: " + link));
+      navigator.clipboard?.writeText(link).then(
+        () => friendMessage("Invite link copied. Send it to your friend."),
+        () => friendMessage("Copy this invite link: " + link)
+      );
     }));
   }
+
+  function renderPendingRequests() {
+    const section = $("friendRequestsSection");
+    const list = $("friendRequestsList");
+    if (!section || !list) return;
+
+    section.hidden = pendingRequestsCache.length === 0;
+    if (!pendingRequestsCache.length) {
+      list.innerHTML = "";
+      return;
+    }
+
+    list.innerHTML = pendingRequestsCache.map((r) => `
+      <div class="friend-request-row">
+        <div style="min-width:0">
+          <div class="friend-name">${esc(r.username)}</div>
+          <div class="friend-status">Wants to be your friend</div>
+        </div>
+        <div class="friend-request-actions">
+          <button class="premium-button primary small" type="button" data-request-action="accept" data-request-id="${esc(r.id)}">Accept</button>
+          <button class="premium-button ghost small" type="button" data-request-action="decline" data-request-id="${esc(r.id)}">Decline</button>
+        </div>
+      </div>`).join("");
+
+    list.querySelectorAll("[data-request-action]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        updateFriendRequest(btn.dataset.requestId, btn.dataset.requestAction);
+      });
+    });
+  }
+
+  async function fetchPendingRequests() {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) return { data: [], error: null };
+
+    return await sb.from("friendships")
+      .select("id, user_id, status, profiles!friendships_user_id_fkey(username)")
+      .eq("friend_id", session.user.id)
+      .eq("status", "pending")
+      .order("created_at", { ascending: true });
+  }
+
+  async function loadPendingRequests(showErrors = false) {
+    const { data, error } = await fetchPendingRequests();
+
+    if (error) {
+      console.error("Pending friend requests:", error);
+      if (showErrors) {
+        friendMessage("Could not load incoming requests. Check the friendships policies/foreign keys.");
+      }
+      return;
+    }
+
+    const rows = (data || []).map((row) => ({
+      id: String(row.id),
+      userId: row.user_id,
+      username: row.profiles?.username || "Unknown"
+    }));
+
+    const previousIds = new Set(pendingRequestsCache.map((r) => String(r.id)));
+    pendingRequestsCache = rows;
+    renderPendingRequests();
+
+    // On first load, show an existing request too.
+    // Later polls only pop up genuinely new requests.
+    const newRequest = rows.find((r) =>
+      !seenPendingRequestIds.has(String(r.id)) &&
+      (!pendingRequestsInitialized || !previousIds.has(String(r.id)))
+    );
+
+    rows.forEach((r) => seenPendingRequestIds.add(String(r.id)));
+
+    if (newRequest) {
+      showFriendRequestPopup(newRequest);
+    }
+
+    pendingRequestsInitialized = true;
+  }
+
+  function showFriendRequestPopup(request) {
+    popupRequestId = String(request.id);
+    const popup = $("friendRequestPopup");
+    if (!popup) return;
+    $("friendRequestPopupText").textContent = `${request.username} sent you a friend request.`;
+    popup.hidden = false;
+  }
+
+  function hideFriendRequestPopup() {
+    popupRequestId = null;
+    $("friendRequestPopup").hidden = true;
+  }
+
+  async function updateFriendRequest(id, action) {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) return;
+
+    const nextStatus = action === "accept" ? "accepted" : "rejected";
+
+    const { error } = await sb.from("friendships")
+      .update({ status: nextStatus })
+      .eq("id", id)
+      .eq("friend_id", session.user.id)
+      .eq("status", "pending");
+
+    if (error) {
+      console.error("Update friend request:", error);
+      friendMessage("Could not update the request. Check your Supabase UPDATE policy.");
+      return;
+    }
+
+    hideFriendRequestPopup();
+    friendMessage(action === "accept" ? "Friend request accepted." : "Friend request declined.");
+    await loadPendingRequests(false);
+    await loadFriends();
+  }
+
   async function loadFriends() {
     const { data: { session } } = await sb.auth.getSession();
-    if (!session) { friendsCache = []; renderFriends(); friendMessage("Please sign in first."); return; }
-    const { data, error } = await sb.from("friendships").select("friend_id, status, profiles:friend_id(username)").eq("user_id", session.user.id).eq("status", "accepted");
+    if (!session) {
+      friendsCache = [];
+      pendingRequestsCache = [];
+      renderFriends();
+      renderPendingRequests();
+      friendMessage("Please sign in first.");
+      return;
+    }
+
+    const { data, error } = await sb.from("friendships")
+      .select("friend_id, status, profiles!friendships_friend_id_fkey(username)")
+      .eq("user_id", session.user.id)
+      .eq("status", "accepted");
+
     if (error) {
       friendsCache = [];
       renderFriends();
       friendMessage("Friends database is not configured yet. Complete the Step 3 SQL setup.");
       return;
     }
-    friendsCache = (data || []).map((row) => ({ id: row.friend_id, username: row.profiles?.username || "Unknown", status: "Friend" }));
+
+    friendsCache = (data || []).map((row) => ({
+      id: row.friend_id,
+      username: row.profiles?.username || "Unknown",
+      status: "Friend"
+    }));
+
     renderFriends();
   }
+
   async function addFriend() {
     const username = $("friendSearch").value.trim().slice(0,20);
     if (!username) { friendMessage("Enter a username first."); return; }
+
     const { data: { session } } = await sb.auth.getSession();
     if (!session) { friendMessage("Please sign in first."); return; }
-    const { data: target, error: findError } = await sb.from("profiles").select("id, username").ilike("username", username).maybeSingle();
-    if (findError || !target) { friendMessage("Username not found."); return; }
-    if (target.id === session.user.id) { friendMessage("You cannot add yourself."); return; }
-    const { error } = await sb.from("friendships").insert({ user_id: session.user.id, friend_id: target.id, status: "pending" });
-    if (error) { friendMessage(error.code === "23505" ? "Request already exists." : "Could not send request. Check Step 3 SQL setup."); return; }
+
+    const { data: target, error: findError } = await sb.from("profiles")
+      .select("id, username")
+      .ilike("username", username)
+      .maybeSingle();
+
+    if (findError || !target) {
+      friendMessage("Username not found.");
+      return;
+    }
+
+    if (target.id === session.user.id) {
+      friendMessage("You cannot add yourself.");
+      return;
+    }
+
+    const { error } = await sb.from("friendships").insert({
+      user_id: session.user.id,
+      friend_id: target.id,
+      status: "pending"
+    });
+
+    if (error) {
+      friendMessage(error.code === "23505" ? "Request already exists." : "Could not send request. Check Step 3 SQL setup.");
+      return;
+    }
+
     $("friendSearch").value = "";
     friendMessage("Friend request sent to " + target.username + ".");
   }
+
+  function startFriendRequestPolling() {
+    if (friendRequestPollTimer) clearInterval(friendRequestPollTimer);
+    friendRequestPollTimer = setInterval(() => {
+      loadPendingRequests(false);
+    }, 5000);
+    loadPendingRequests(false);
+  }
+
   $("friendsBtn")?.addEventListener("click", openFriendsPanel);
   $("friendsGameBtn")?.addEventListener("click", openFriendsPanel);
   $("closeFriends")?.addEventListener("click", closeFriendsPanel);
   $("addFriend")?.addEventListener("click", addFriend);
-  $("friendsPanel")?.addEventListener("click", (e) => { if (e.target === $("friendsPanel")) closeFriendsPanel(); });
+
+  $("friendPopupAccept")?.addEventListener("click", () => {
+    if (popupRequestId) updateFriendRequest(popupRequestId, "accept");
+  });
+  $("friendPopupDecline")?.addEventListener("click", () => {
+    if (popupRequestId) updateFriendRequest(popupRequestId, "decline");
+  });
+
+  $("friendsPanel")?.addEventListener("click", (e) => {
+    if (e.target === $("friendsPanel")) closeFriendsPanel();
+  });
+
+  startFriendRequestPolling();
 
   /* ---------- Rotating the board ---------- */
   // Turns a square on the screen (i, j) into the real board square (r, c)
