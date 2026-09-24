@@ -934,59 +934,6 @@
   /* Piece squares contain chess glyphs only — never player-name text. */
   #board .sq { text-shadow: 0 2px 2px rgba(0,0,0,.18); }
   #board .sq .piece { text-shadow: 0 2px 2px rgba(0,0,0,.18); }
-  /* Friends refinements — keep the existing premium layout intact. */
-  .friends-requests {
-    margin: 12px 0 10px;
-    padding: 12px;
-    border: 1px solid rgba(245,179,1,.24);
-    border-radius: 14px;
-    background: linear-gradient(135deg, rgba(245,179,1,.08), rgba(255,255,255,.025));
-  }
-  .friends-requests .friends-subhead {
-    display:flex;
-    align-items:center;
-    gap:8px;
-    margin-bottom:8px;
-    font-size:12px;
-    font-weight:800;
-    letter-spacing:.06em;
-    text-transform:uppercase;
-    color:var(--text);
-  }
-  .friends-requests .friends-subhead::before {
-    content:"";
-    width:7px;
-    height:7px;
-    border-radius:50%;
-    background:#f5b301;
-    box-shadow:0 0 12px rgba(245,179,1,.55);
-  }
-  .friend-remove-btn {
-    border-color: rgba(239,68,68,.30) !important;
-    color:#ffb4ac !important;
-  }
-  .friend-remove-btn:hover {
-    border-color:rgba(239,68,68,.55) !important;
-    background:rgba(239,68,68,.08) !important;
-  }
-  .back-toggle {
-    width:44px;
-    height:44px;
-    border-radius:14px !important;
-    border:1px solid rgba(255,255,255,.16) !important;
-    background:linear-gradient(145deg,rgba(255,255,255,.12),rgba(255,255,255,.035)) !important;
-    box-shadow:0 10px 28px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.08);
-    font-size:21px;
-    font-weight:800;
-    transition:transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
-  }
-  .back-toggle:hover {
-    transform:translateY(-2px);
-    border-color:rgba(245,179,1,.42) !important;
-    box-shadow:0 14px 34px rgba(0,0,0,.36), 0 0 20px rgba(245,179,1,.08);
-  }
-  .back-toggle:active { transform:scale(.96); }
-
 </style>
 </head>
 <body>
@@ -1565,9 +1512,8 @@
     return name;
   }
 
-  // Stable identity for this browser/device. The server uses this ID to
-  // restore the exact same seat after leaving/rejoining and to prevent
-  // the same player from occupying two seats.
+  // Stable identity for this browser/device. The server uses this to restore
+  // the exact same seat after leaving/rejoining and to prevent duplicate players.
   function playerId() {
     try {
       let id = localStorage.getItem("four-player-chess-player-id");
@@ -1646,10 +1592,8 @@
   });
   $("join").addEventListener("click", () => { Sound.play("move"); join($("code").value); });
   $("backToLobby").addEventListener("click", () => {
-    // Leave immediately without a confirmation popup. Keep the saved seat so that
-    // returning to the same room restores the player's original color/position.
-    // The server will release the socket seat on disconnect, while the client
-    // keeps the color preference in localStorage for the next join.
+    if (!confirm("Leave this game and return to the lobby?")) return;
+    try { if (me.code) localStorage.removeItem("seat-" + me.code); } catch (e) {}
     location.hash = "";
     location.reload();
   });
@@ -1706,16 +1650,20 @@
     list.innerHTML = friendsCache.map((f) => `
       <div class="friend-row">
         <div style="min-width:0"><div class="friend-name">${esc(f.username)}</div><div class="friend-status">${esc(f.status || "Friend")}</div></div>
-        <button class="premium-button ghost small friend-remove-btn" type="button" data-remove-friend="${esc(f.id)}">Remove</button>
+        <button class="premium-button ghost small" type="button" data-invite-user="${esc(f.id)}">Invite</button>
       </div>`).join("");
-    list.querySelectorAll("[data-remove-friend]").forEach((btn) => btn.addEventListener("click", () => removeFriend(btn.getAttribute("data-remove-friend"))));
+    list.querySelectorAll("[data-invite-user]").forEach((btn) => btn.addEventListener("click", () => {
+      if (!me.code) { friendMessage("Create or join a room first."); return; }
+      const link = location.href.split("#")[0] + "#" + me.code;
+      navigator.clipboard?.writeText(link).then(() => friendMessage("Invite link copied. Send it to your friend."), () => friendMessage("Copy this invite link: " + link));
+    }));
   }
   function renderRequests() {
     const box = $("friendRequests");
     if (!box) return;
     if (!requestsCache.length) { box.hidden = true; box.innerHTML = ""; return; }
     box.hidden = false;
-    box.innerHTML = '<div class="friends-subhead">Friend requests · ' + requestsCache.length + '</div>' + requestsCache.map((r) => `
+    box.innerHTML = '<div class="friends-subhead">Friend requests</div>' + requestsCache.map((r) => `
       <div class="friend-row">
         <div style="min-width:0"><div class="friend-name">${esc(r.username)}</div><div class="friend-status">wants to be friends</div></div>
         <div class="friend-row-actions">
@@ -1726,30 +1674,6 @@
     box.querySelectorAll("[data-accept]").forEach((btn) => btn.addEventListener("click", () => respondRequest(btn.getAttribute("data-accept"), true)));
     box.querySelectorAll("[data-decline]").forEach((btn) => btn.addEventListener("click", () => respondRequest(btn.getAttribute("data-decline"), false)));
   }
-  async function removeFriend(friendId) {
-    const { data: { session } } = await sb.auth.getSession();
-    if (!session) { friendMessage("Please sign in first."); return; }
-
-    const friend = friendsCache.find(f => String(f.id) === String(friendId));
-    if (!friend) return;
-
-    if (!confirm("Remove " + friend.username + " from your friends?")) return;
-
-    const uid = session.user.id;
-    const { error } = await sb.from("friendships")
-      .delete()
-      .eq("status", "accepted")
-      .or(`and(user_id.eq.${uid},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${uid})`);
-
-    if (error) {
-      friendMessage("Could not remove friend: " + error.message);
-      return;
-    }
-
-    friendMessage(friend.username + " removed from your friends.");
-    loadFriends();
-  }
-
   async function respondRequest(requestId, accept) {
     if (accept) {
       const { error } = await sb.from("friendships").update({ status: "accepted" }).eq("id", requestId);
@@ -1766,57 +1690,25 @@
     const { data: { session } } = await sb.auth.getSession();
     if (!session) { friendsCache = []; requestsCache = []; renderFriends(); renderRequests(); friendMessage("Please sign in first."); return; }
     const uid = session.user.id;
-
-    // Do not depend on a Supabase FK relationship between friendships and profiles.
-    // The friendships table is user_id/friend_id in the current database.
     const [sentRes, receivedRes, incomingRes] = await Promise.all([
-      sb.from("friendships").select("friend_id, status").eq("user_id", uid).eq("status", "accepted"),
-      sb.from("friendships").select("user_id, status").eq("friend_id", uid).eq("status", "accepted"),
-      sb.from("friendships").select("id, user_id, status").eq("friend_id", uid).eq("status", "pending"),
+      sb.from("friendships").select("friend_id, status, profiles:friend_id(username)").eq("user_id", uid).eq("status", "accepted"),
+      sb.from("friendships").select("user_id, status, profiles:user_id(username)").eq("friend_id", uid).eq("status", "accepted"),
+      sb.from("friendships").select("id, user_id, profiles:user_id(username)").eq("friend_id", uid).eq("status", "pending"),
     ]);
-
     if (sentRes.error || receivedRes.error || incomingRes.error) {
       friendsCache = [];
       requestsCache = [];
       renderFriends();
       renderRequests();
-      const err = sentRes.error || receivedRes.error || incomingRes.error;
-      friendMessage("Could not load friends: " + (err?.message || "database error"));
+      friendMessage("Friends database is not configured yet. Complete the Step 3 SQL setup.");
       return;
     }
-
-    const friendIds = [
-      ...(sentRes.data || []).map(r => r.friend_id),
-      ...(receivedRes.data || []).map(r => r.user_id),
-      ...(incomingRes.data || []).map(r => r.user_id)
-    ].filter(Boolean);
-    const uniqueIds = [...new Set(friendIds)];
-    let profiles = [];
-
-    if (uniqueIds.length) {
-      const profileRes = await sb.from("profiles").select("id, username").in("id", uniqueIds);
-      if (profileRes.error) {
-        friendsCache = [];
-        requestsCache = [];
-        renderFriends();
-        renderRequests();
-        friendMessage("Could not load friend profiles: " + profileRes.error.message);
-        return;
-      }
-      profiles = profileRes.data || [];
-    }
-
-    const names = new Map(profiles.map(p => [String(p.id), p.username]));
+    const sent = (sentRes.data || []).map((row) => ({ id: row.friend_id, username: row.profiles?.username || "Unknown" }));
+    const received = (receivedRes.data || []).map((row) => ({ id: row.user_id, username: row.profiles?.username || "Unknown" }));
     const merged = new Map();
-    (sentRes.data || []).forEach(r => merged.set(String(r.friend_id), { id:r.friend_id, username:names.get(String(r.friend_id)) || "Unknown" }));
-    (receivedRes.data || []).forEach(r => merged.set(String(r.user_id), { id:r.user_id, username:names.get(String(r.user_id)) || "Unknown" }));
-
-    friendsCache = Array.from(merged.values()).map(f => ({ ...f, status:"Friend" }));
-    requestsCache = (incomingRes.data || []).map(r => ({
-      requestId:r.id,
-      id:r.user_id,
-      username:names.get(String(r.user_id)) || "Unknown"
-    }));
+    [...sent, ...received].forEach((f) => merged.set(f.id, f));
+    friendsCache = Array.from(merged.values()).map((f) => ({ ...f, status: "Friend" }));
+    requestsCache = (incomingRes.data || []).map((row) => ({ requestId: row.id, id: row.user_id, username: row.profiles?.username || "Unknown" }));
     renderFriends();
     renderRequests();
   }
@@ -1833,14 +1725,8 @@
     $("friendSearch").value = "";
     friendMessage("Friend request sent to " + target.username + ".");
   }
-  $("friendsBtn")?.addEventListener("click", () => {
-    $("friendsPanel")?.removeAttribute("data-game-mode");
-    openFriendsPanel();
-  });
-  $("friendsGameBtn")?.addEventListener("click", () => {
-    if ($("friendsPanel")) $("friendsPanel").dataset.gameMode = "true";
-    openFriendsPanel();
-  });
+  $("friendsBtn")?.addEventListener("click", openFriendsPanel);
+  $("friendsGameBtn")?.addEventListener("click", openFriendsPanel);
   $("closeFriends")?.addEventListener("click", closeFriendsPanel);
   $("addFriend")?.addEventListener("click", addFriend);
   $("friendsPanel")?.addEventListener("click", (e) => { if (e.target === $("friendsPanel")) closeFriendsPanel(); });
