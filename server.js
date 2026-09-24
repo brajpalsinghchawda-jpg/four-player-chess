@@ -221,13 +221,20 @@ setInterval(() => {
 io.on("connection", (socket) => {
   let roomCode = null;
   let myColor = null;
+  let myPlayerId = null;
 
   function leave() {
     const room = roomCode && rooms.get(roomCode);
     if (room) {
       if (myColor && room.seats[myColor] === socket.id) {
         room.seats[myColor] = null;
-        if (!room.started) room.names[myColor] = null; // during a game, keep the name
+        // Before the game starts, an abandoned seat is available again.
+        // Once the game has started, retain the player identity so the same
+        // player can reconnect to the same color/position.
+        if (!room.started) {
+          room.playerIds[myColor] = null;
+          room.names[myColor] = null;
+        }
       }
       if (COLORS.every((c) => !room.seats[c])) room.emptySince = Date.now();
       socket.leave(roomCode);
@@ -235,34 +242,71 @@ io.on("connection", (socket) => {
     }
     roomCode = null;
     myColor = null;
+    myPlayerId = null;
   }
 
-  function sit(code, preferredColor, name) {
+  function sit(code, preferredColor, name, playerId) {
     const room = rooms.get(code);
     if (!room) {
       socket.emit("problem", "Room not found. Check the code and try again.");
       return;
     }
+
+    playerId = String(playerId || "").trim();
+    if (!playerId) {
+      socket.emit("problem", "Player identity missing. Refresh and try again.");
+      return;
+    }
+
     leave();
 
-    // Take the seat you had before if it is free, otherwise the first free seat
-    let color = null;
-    if (COLORS.includes(preferredColor) && !room.seats[preferredColor]) {
-      color = preferredColor;
-    } else {
-      color = COLORS.find((c) => !room.seats[c] && !room.eliminated[c]) || null;
-    }
+    // First priority: if this player already owns a seat, reconnect them to
+    // that exact seat. This prevents position changes and duplicate players.
+    let color = COLORS.find((c) => room.playerIds[c] === playerId) || null;
+
+    // If the same player is still connected from another tab/device, replace
+    // that socket instead of creating a second player.
     if (color) {
+      const oldSocketId = room.seats[color];
+      if (oldSocketId && oldSocketId !== socket.id) {
+        const oldSocket = io.sockets.sockets.get(oldSocketId);
+        if (oldSocket) oldSocket.disconnect(true);
+      }
       room.seats[color] = socket.id;
       room.names[color] = cleanName(name, color);
+    } else {
+      // A caller may explicitly request its previous color, but never steal a
+      // seat already reserved for another player identity.
+      if (COLORS.includes(preferredColor) &&
+          !room.seats[preferredColor] &&
+          !room.playerIds[preferredColor] &&
+          !room.eliminated[preferredColor]) {
+        color = preferredColor;
+      } else {
+        color = COLORS.find((c) =>
+          !room.seats[c] && !room.playerIds[c] && !room.eliminated[c]
+        ) || null;
+      }
+
+      if (color) {
+        room.seats[color] = socket.id;
+        room.playerIds[color] = playerId;
+        room.names[color] = cleanName(name, color);
+      }
     }
+
+    if (!color) {
+      socket.emit("problem", "This room is full. If you were already in this game, rejoin with the same browser/device.");
+      return;
+    }
+
     room.emptySince = null;
-    // The game starts the first time all four seats are filled
     if (!room.started && COLORS.every((c) => room.seats[c])) room.started = true;
     syncTicking(room);
 
     roomCode = code;
     myColor = color;
+    myPlayerId = playerId;
     socket.join(code);
     socket.emit("joined", { code, color });
     broadcast(code);
@@ -274,12 +318,12 @@ io.on("connection", (socket) => {
     const bonus = CLOCK_BONUS.includes(Number(data.bonus)) ? Number(data.bonus) : 0;
     const code = makeCode();
     rooms.set(code, newRoom(minutes, bonus, data.mode));
-    sit(code, null, data.name);
+    sit(code, null, data.name, data.playerId);
   });
 
   socket.on("joinRoom", (data) => {
     const code = String((data && data.code) || "").trim().toUpperCase();
-    sit(code, data && data.color, data && data.name);
+    sit(code, data && data.color, data && data.name, data && data.playerId);
   });
 
   socket.on("move", (data) => {
