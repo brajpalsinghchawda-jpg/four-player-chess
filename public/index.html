@@ -237,6 +237,7 @@
   .icon-btn:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.28); background: var(--surface-hover); }
   .icon-btn:active { transform: translateY(0) scale(0.94); }
   .sound-toggle { position: fixed; top: calc(16px + env(safe-area-inset-top, 0px)); right: 16px; z-index: 40; }
+  .back-toggle { position: fixed; top: calc(16px + env(safe-area-inset-top, 0px)); left: 16px; z-index: 40; font-size: 18px; }
 
   /* ---------- Segmented control ---------- */
   .segmented {
@@ -847,6 +848,9 @@
 
   /* ---------- Friends / direct invite panel ---------- */
   .friends-panel { position:fixed; inset:0; z-index:75; display:flex; align-items:center; justify-content:center; padding:18px; background:rgba(4,5,8,.72); backdrop-filter:blur(8px); }
+  .friends-requests { display:flex; flex-direction:column; gap:8px; margin-bottom: 10px; }
+  .friends-subhead { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .friend-row-actions { display:flex; gap:6px; flex-shrink:0; }
   .friends-card { width:min(100%, 470px); max-height:min(82vh, 650px); overflow:auto; padding:22px; border:1px solid rgba(255,255,255,.13); background:linear-gradient(145deg,rgba(25,29,40,.98),rgba(10,13,20,.98)); box-shadow:0 30px 90px rgba(0,0,0,.58); border-radius:22px; }
   .friends-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
   .friends-head h2 { margin:0; font-size:22px; }
@@ -937,6 +941,7 @@
   <div class="bg-glyphs" id="bgGlyphs"></div>
 
   <button id="soundToggle" class="icon-btn sound-toggle" type="button" title="Toggle sound" aria-label="Toggle sound">🔊</button>
+  <button id="backToLobby" class="icon-btn back-toggle" type="button" title="Back to lobby" aria-label="Back to lobby" hidden>←</button>
 
   <header class="brand">
     <div class="brand-mark">4<span class="brand-pawn">&#9823;</span></div>
@@ -1076,6 +1081,7 @@
         <input id="friendSearch" maxlength="20" placeholder="Search username" autocomplete="off">
         <button id="addFriend" class="premium-button primary small" type="button">Add Friend</button>
       </div>
+      <div id="friendRequests" class="friends-requests" hidden></div>
       <div id="friendsList" class="friends-list"><div class="friends-empty">Sign in to load your friends.</div></div>
       <div id="friendsNote" class="friends-note"></div>
     </div>
@@ -1509,7 +1515,7 @@
   function join(code) {
     code = code.trim().toUpperCase();
     if (!code) return;
-    const savedColor = sessionStorage.getItem("seat-" + code) || null;
+    const savedColor = localStorage.getItem("seat-" + code) || null;
     socket.emit("joinRoom", { code, color: savedColor, name: myName() });
   }
 
@@ -1522,7 +1528,7 @@
     const code = location.hash.slice(1).toUpperCase();
     if (!code) return;
     $("code").value = code;
-    if (sessionStorage.getItem("seat-" + code) !== null) {
+    if (localStorage.getItem("seat-" + code) !== null) {
       join(code);                                    // you were already in this room
     } else {
       $("note").textContent = "Type your name, then press Join room.";
@@ -1534,12 +1540,13 @@
 
   socket.on("joined", ({ code, color }) => {
     me = { code, color };
-    sessionStorage.setItem("seat-" + code, color || "");
+    localStorage.setItem("seat-" + code, color || "");
     location.hash = code;
     $("note").textContent = "";
     $("account").hidden = true;
     $("lobby").hidden = true;
     $("game").hidden = false;
+    $("backToLobby").hidden = false;
     $("roomBanner").hidden = false;
     $("roomCodeText").textContent = code;
     $("roomStatus").textContent = "Waiting for players";
@@ -1567,6 +1574,12 @@
     });
   });
   $("join").addEventListener("click", () => { Sound.play("move"); join($("code").value); });
+  $("backToLobby").addEventListener("click", () => {
+    if (!confirm("Leave this game and return to the lobby?")) return;
+    try { if (me.code) localStorage.removeItem("seat-" + me.code); } catch (e) {}
+    location.hash = "";
+    location.reload();
+  });
   $("again").addEventListener("click", () => socket.emit("rematch"));
   $("resign").addEventListener("click", () => {
     const msg = room && room.mode === "teams"
@@ -1600,6 +1613,7 @@
 
   /* ---------- Friends / direct invite (Step 3) ---------- */
   let friendsCache = [];
+  let requestsCache = [];
   function openFriendsPanel() {
     const panel = $("friendsPanel");
     if (!panel) return;
@@ -1627,18 +1641,59 @@
       navigator.clipboard?.writeText(link).then(() => friendMessage("Invite link copied. Send it to your friend."), () => friendMessage("Copy this invite link: " + link));
     }));
   }
+  function renderRequests() {
+    const box = $("friendRequests");
+    if (!box) return;
+    if (!requestsCache.length) { box.hidden = true; box.innerHTML = ""; return; }
+    box.hidden = false;
+    box.innerHTML = '<div class="friends-subhead">Friend requests</div>' + requestsCache.map((r) => `
+      <div class="friend-row">
+        <div style="min-width:0"><div class="friend-name">${esc(r.username)}</div><div class="friend-status">wants to be friends</div></div>
+        <div class="friend-row-actions">
+          <button class="premium-button primary small" type="button" data-accept="${esc(r.requestId)}">Accept</button>
+          <button class="premium-button ghost small" type="button" data-decline="${esc(r.requestId)}">Decline</button>
+        </div>
+      </div>`).join("");
+    box.querySelectorAll("[data-accept]").forEach((btn) => btn.addEventListener("click", () => respondRequest(btn.getAttribute("data-accept"), true)));
+    box.querySelectorAll("[data-decline]").forEach((btn) => btn.addEventListener("click", () => respondRequest(btn.getAttribute("data-decline"), false)));
+  }
+  async function respondRequest(requestId, accept) {
+    if (accept) {
+      const { error } = await sb.from("friendships").update({ status: "accepted" }).eq("id", requestId);
+      if (error) { friendMessage("Could not accept request."); return; }
+      friendMessage("Friend request accepted.");
+    } else {
+      const { error } = await sb.from("friendships").delete().eq("id", requestId);
+      if (error) { friendMessage("Could not decline request."); return; }
+      friendMessage("Friend request declined.");
+    }
+    loadFriends();
+  }
   async function loadFriends() {
     const { data: { session } } = await sb.auth.getSession();
-    if (!session) { friendsCache = []; renderFriends(); friendMessage("Please sign in first."); return; }
-    const { data, error } = await sb.from("friendships").select("friend_id, status, profiles:friend_id(username)").eq("user_id", session.user.id).eq("status", "accepted");
-    if (error) {
+    if (!session) { friendsCache = []; requestsCache = []; renderFriends(); renderRequests(); friendMessage("Please sign in first."); return; }
+    const uid = session.user.id;
+    const [sentRes, receivedRes, incomingRes] = await Promise.all([
+      sb.from("friendships").select("friend_id, status, profiles:friend_id(username)").eq("user_id", uid).eq("status", "accepted"),
+      sb.from("friendships").select("user_id, status, profiles:user_id(username)").eq("friend_id", uid).eq("status", "accepted"),
+      sb.from("friendships").select("id, user_id, profiles:user_id(username)").eq("friend_id", uid).eq("status", "pending"),
+    ]);
+    if (sentRes.error || receivedRes.error || incomingRes.error) {
       friendsCache = [];
+      requestsCache = [];
       renderFriends();
+      renderRequests();
       friendMessage("Friends database is not configured yet. Complete the Step 3 SQL setup.");
       return;
     }
-    friendsCache = (data || []).map((row) => ({ id: row.friend_id, username: row.profiles?.username || "Unknown", status: "Friend" }));
+    const sent = (sentRes.data || []).map((row) => ({ id: row.friend_id, username: row.profiles?.username || "Unknown" }));
+    const received = (receivedRes.data || []).map((row) => ({ id: row.user_id, username: row.profiles?.username || "Unknown" }));
+    const merged = new Map();
+    [...sent, ...received].forEach((f) => merged.set(f.id, f));
+    friendsCache = Array.from(merged.values()).map((f) => ({ ...f, status: "Friend" }));
+    requestsCache = (incomingRes.data || []).map((row) => ({ requestId: row.id, id: row.user_id, username: row.profiles?.username || "Unknown" }));
     renderFriends();
+    renderRequests();
   }
   async function addFriend() {
     const username = $("friendSearch").value.trim().slice(0,20);
