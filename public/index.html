@@ -237,6 +237,7 @@
   .icon-btn:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.28); background: var(--surface-hover); }
   .icon-btn:active { transform: translateY(0) scale(0.94); }
   .sound-toggle { position: fixed; top: calc(16px + env(safe-area-inset-top, 0px)); right: 16px; z-index: 40; }
+  .back-toggle { position: fixed; top: calc(16px + env(safe-area-inset-top, 0px)); left: 16px; z-index: 40; font-size: 18px; }
 
   /* ---------- Segmented control ---------- */
   .segmented {
@@ -337,6 +338,17 @@
   .room-code-label { font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
   .room-code { font-family: var(--font-mono); font-size: 20px; font-weight: 700; letter-spacing: 0.14em; }
   .copied-flash { color: var(--green) !important; }
+  .room-status {
+    width: min(92vw, 620px);
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    padding: 2px 0 4px;
+  }
+  .room-status::before { content: "•"; color: var(--gold); margin-right: 8px; }
 
   .turn-banner {
     min-height: 1.4em;
@@ -609,43 +621,371 @@
     * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
   }
 
-  /* ---------- Friends / invites ---------- */
-  .social-row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-  .friends-btn { min-width:92px; }
-  .modal-backdrop {
-    position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,.68);
-    backdrop-filter:blur(10px); display:flex; align-items:center; justify-content:center;
-    padding:18px;
+
+  /* ================================================================
+     PREMIUM UI V2 — Step 1 visual polish
+     IMPORTANT: no chess rules, socket events, auth flow, or board logic changed.
+     ================================================================ */
+  body {
+    background:
+      radial-gradient(900px 520px at 50% -12%, rgba(245,179,1,.10), transparent 64%),
+      radial-gradient(720px 520px at -8% 48%, rgba(59,130,246,.065), transparent 68%),
+      radial-gradient(720px 520px at 108% 54%, rgba(239,68,68,.055), transparent 68%),
+      linear-gradient(180deg, #07090e 0%, #0a0d14 55%, #07090e 100%);
+    gap: 18px;
   }
-  .friends-modal {
-    width:min(560px,100%); max-height:min(78vh,720px); overflow:auto;
-    background:linear-gradient(180deg,rgba(20,24,34,.98),rgba(10,13,20,.98));
-    border:1px solid var(--border); border-radius:22px; box-shadow:var(--shadow-lg);
-    padding:18px;
+  .brand { margin-top: 30px; gap: 4px; }
+  .brand-mark {
+    padding: 7px 14px;
+    border: 1px solid rgba(245,179,1,.22);
+    border-radius: 999px;
+    background: linear-gradient(135deg, rgba(245,179,1,.10), rgba(255,255,255,.035));
+    box-shadow: 0 8px 30px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.08);
   }
-  .modal-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
-  .modal-title { margin:0; font:700 20px var(--font-display); }
-  .modal-close { border:1px solid var(--border); background:var(--surface); color:var(--text); border-radius:10px; width:36px; height:36px; cursor:pointer; }
-  .friend-tabs { display:flex; gap:7px; margin-bottom:14px; }
-  .friend-tab { flex:1; border:1px solid var(--border); background:var(--surface); color:var(--muted); padding:9px 10px; border-radius:10px; cursor:pointer; font-weight:700; }
-  .friend-tab.active { color:var(--text); background:var(--surface-hover); border-color:rgba(255,255,255,.22); }
-  .friend-search { display:flex; gap:8px; margin-bottom:12px; }
-  .friend-search input { flex:1; min-width:0; }
-  .friend-list { display:flex; flex-direction:column; gap:8px; }
-  .friend-item { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:11px 12px; border:1px solid var(--border-soft); background:rgba(255,255,255,.035); border-radius:13px; }
-  .friend-main { min-width:0; }
-  .friend-name { font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .friend-meta { color:var(--muted-2); font-size:12px; margin-top:2px; }
-  .friend-actions { display:flex; gap:7px; flex-shrink:0; }
-  .friend-empty { color:var(--muted); text-align:center; padding:22px 10px; }
-  .friend-note { color:var(--muted); font-size:13px; min-height:18px; margin:8px 2px; }
-  .invite-badge { display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:18px; padding:0 5px; margin-left:5px; border-radius:99px; background:var(--red); color:white; font-size:11px; }
-  @media (max-width:520px) {
-    .modal-backdrop { padding:10px; align-items:flex-end; }
-    .friends-modal { max-height:86vh; border-radius:20px 20px 0 0; padding:15px; }
-    .friend-item { align-items:flex-start; }
-    .friend-actions { flex-wrap:wrap; justify-content:flex-end; }
+  .brand-pawn { font-size: 20px; filter: drop-shadow(0 0 9px rgba(245,179,1,.35)); }
+  .brand h1 {
+    font-size: clamp(27px, 5.5vw, 39px);
+    letter-spacing: -.015em;
+    background: linear-gradient(180deg, #fff, #c9ced9 75%, #9da5b5);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
+  .brand .tagline { color: #8d97aa; font-size: 13px; }
+
+  .account-panel {
+    max-width: 560px;
+    border-color: rgba(255,255,255,.10);
+    background: linear-gradient(135deg, rgba(255,255,255,.065), rgba(255,255,255,.025));
+    box-shadow: 0 18px 50px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.045);
+  }
+  #googleSignIn {
+    background: linear-gradient(135deg, rgba(255,255,255,.11), rgba(255,255,255,.045));
+    border-color: rgba(255,255,255,.14) !important;
+  }
+
+  .lobby-wrap {
+    max-width: 980px;
+    gap: 18px;
+    align-items: stretch;
+  }
+  .lobby-head {
+    width: 100%;
+    flex: 0 0 100%;
+    text-align: center;
+    padding: 2px 10px 8px;
+  }
+  .lobby-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 10px;
+    border: 1px solid rgba(245,179,1,.18);
+    border-radius: 999px;
+    color: #d9b957;
+    background: rgba(245,179,1,.055);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+  }
+  .lobby-eyebrow::before {
+    content: "";
+    width: 6px; height: 6px; border-radius: 50%;
+    background: #22c55e; box-shadow: 0 0 10px #22c55e;
+  }
+  .lobby-head h2 { margin: 12px 0 4px; font-size: clamp(23px, 4vw, 30px); letter-spacing: -.02em; }
+  .lobby-head p { margin: 0; color: var(--muted); font-size: 13px; }
+  .lobby-card {
+    min-height: 330px;
+    padding: 25px;
+    gap: 17px;
+    border-color: rgba(255,255,255,.105);
+    background: linear-gradient(145deg, rgba(255,255,255,.072), rgba(255,255,255,.025));
+    box-shadow: 0 22px 55px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.055);
+  }
+  .lobby-card:hover {
+    border-color: rgba(245,179,1,.24);
+    box-shadow: 0 28px 70px rgba(0,0,0,.40), 0 0 45px rgba(245,179,1,.035), inset 0 1px 0 rgba(255,255,255,.07);
+  }
+  .card-title { font-size: 19px; }
+  .card-title::after {
+    content: ""; display: block; width: 34px; height: 2px; margin-top: 9px;
+    border-radius: 99px; background: linear-gradient(90deg, #f5b301, transparent);
+  }
+  .premium-button.primary {
+    background: linear-gradient(135deg, #ffffff, #d9dce3);
+    color: #0b0d12;
+    box-shadow: 0 12px 30px rgba(255,255,255,.10), inset 0 1px 0 rgba(255,255,255,.65);
+  }
+  .premium-button.primary:hover { box-shadow: 0 16px 38px rgba(255,255,255,.16); }
+  .field label { color: #8f99ab; }
+  input, select { min-height: 44px; background: rgba(5,7,12,.34); border-color: rgba(255,255,255,.10); }
+  input:focus, select:focus { border-color: rgba(245,179,1,.48); box-shadow: 0 0 0 4px rgba(245,179,1,.07), 0 8px 22px rgba(0,0,0,.18); }
+  .segmented { background: rgba(0,0,0,.20); }
+  .seg-btn.active { background: linear-gradient(135deg, rgba(245,179,1,.20), rgba(255,255,255,.07)); color: #ffe8a9; border: 1px solid rgba(245,179,1,.18); }
+
+  /* Game identity header */
+  .arena-wrap { max-width: 1120px; gap: 13px; }
+  .room-banner {
+    width: min(100%, 1080px);
+    padding: 12px 15px;
+    border-color: rgba(255,255,255,.11);
+    background: linear-gradient(135deg, rgba(255,255,255,.075), rgba(255,255,255,.025));
+    box-shadow: 0 18px 48px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.05);
+  }
+  .room-banner > div:first-child { display:flex; align-items:center; gap:12px; }
+  .room-banner > div:first-child::before {
+    content:"♛";
+    width:38px; height:38px; flex:none; display:flex; align-items:center; justify-content:center;
+    border-radius:12px; font-size:19px;
+    background:linear-gradient(145deg, rgba(245,179,1,.22), rgba(245,179,1,.05));
+    border:1px solid rgba(245,179,1,.22);
+  }
+  .room-code-label { color:#8d97aa; }
+  .room-code { font-size:21px; text-shadow:0 0 20px rgba(245,179,1,.08); }
+  #roomStatus {
+    padding:6px 11px;
+    border-radius:999px;
+    border:1px solid rgba(255,255,255,.08);
+    background:rgba(255,255,255,.035);
+    color:#aeb7c7;
+    font-size:10px;
+    font-weight:800;
+    letter-spacing:.10em;
+    text-transform:uppercase;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.04);
+  }
+  #roomStatus::before { content:""; display:inline-block; width:6px; height:6px; border-radius:50%; background:#22c55e; box-shadow:0 0 9px #22c55e; margin-right:7px; vertical-align:1px; }
+  #roomStatus { width:min(100%,1080px); text-align:center; }
+  .turn-banner {
+    width:min(100%,760px);
+    min-height:32px;
+    display:flex; align-items:center; justify-content:center;
+    padding:7px 14px;
+    border-radius:999px;
+    background:rgba(255,255,255,.025);
+    border:1px solid rgba(255,255,255,.055);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.025);
+  }
+
+  /* ---------- Waiting room / player panel ---------- */
+  .waiting-panel {
+    width: min(100%, 1080px);
+    padding: 13px 15px 14px;
+    border-color: rgba(255,255,255,.09);
+    background: linear-gradient(145deg, rgba(255,255,255,.055), rgba(255,255,255,.018));
+    box-shadow: 0 16px 42px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,255,255,.045);
+    animation: cardIn 320ms var(--ease) both;
+  }
+  .waiting-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
+  .waiting-head > div { display:flex; align-items:baseline; gap:9px; min-width:0; }
+  .waiting-head strong { font-family:var(--font-display); font-size:14px; letter-spacing:.01em; }
+  #waitingCount { color:var(--muted); font-family:var(--font-mono); font-size:11px; }
+  .waiting-live { color:var(--muted); font-size:9px; font-weight:800; letter-spacing:.12em; white-space:nowrap; }
+  .waiting-live i { display:inline-block; width:6px; height:6px; border-radius:50%; background:#22c55e; box-shadow:0 0 9px #22c55e; margin-right:5px; vertical-align:1px; }
+  .waiting-progress { height:4px; border-radius:99px; overflow:hidden; background:rgba(255,255,255,.06); margin-bottom:11px; }
+  #waitingProgress { display:block; width:25%; height:100%; border-radius:inherit; background:linear-gradient(90deg, #fff, rgba(255,255,255,.42)); transition:width 260ms var(--ease); }
+  .seat-strip { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+  .seat-item { min-width:0; padding:9px 10px; border-radius:10px; border:1px solid rgba(255,255,255,.07); background:rgba(255,255,255,.025); display:flex; align-items:center; gap:8px; transition:border-color 180ms var(--ease), background 180ms var(--ease), transform 180ms var(--ease); }
+  .seat-item.filled { background:rgba(255,255,255,.045); border-color:rgba(255,255,255,.11); }
+  .seat-item.you { border-color:rgba(255,255,255,.25); box-shadow:inset 0 0 0 1px rgba(255,255,255,.04); }
+  .seat-dot { width:9px; height:9px; border-radius:50%; flex:none; background:var(--seat-color); box-shadow:0 0 9px var(--seat-color); }
+  .seat-text { min-width:0; display:flex; flex-direction:column; gap:2px; }
+  .seat-name { font-size:11px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .seat-state { font-size:9px; color:var(--muted-2); letter-spacing:.03em; }
+  .seat-item.empty .seat-dot { background:rgba(255,255,255,.16); box-shadow:none; }
+  .seat-item.empty .seat-name { color:var(--muted-2); font-weight:600; }
+  @media (max-width:760px) {
+    .waiting-panel { padding:11px 12px 12px; }
+    .seat-strip { grid-template-columns:repeat(2,1fr); }
+    .seat-item { padding:8px 9px; }
+  }
+
+  /* Player HUD */
+  .player-card {
+    overflow:hidden;
+    border-color:rgba(255,255,255,.10);
+    background:linear-gradient(145deg, rgba(255,255,255,.075), rgba(255,255,255,.025));
+    box-shadow:0 14px 34px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.045);
+    padding:11px 13px 10px;
+  }
+  .player-card::after { content:""; position:absolute; left:0; right:0; top:0; height:2px; background:var(--pc); opacity:.45; }
+  .player-card.active {
+    box-shadow:0 0 0 1px var(--pc) inset, 0 16px 38px -10px var(--pc), inset 0 1px 0 rgba(255,255,255,.08);
+    background:linear-gradient(145deg, color-mix(in srgb, var(--pc) 13%, rgba(255,255,255,.06)), rgba(255,255,255,.025));
+  }
+  .player-card .pc-clock { font-size:22px; margin-top:5px; }
+  .player-card .pc-badge { border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.045); }
+
+  /* Board = visual hero */
+  .board-frame {
+    padding:16px;
+    border-radius:28px;
+    background:linear-gradient(145deg, rgba(255,255,255,.095), rgba(255,255,255,.018)) padding-box,
+               linear-gradient(145deg, rgba(255,255,255,.22), rgba(245,179,1,.12), rgba(255,255,255,.035)) border-box;
+    border:1px solid transparent;
+    box-shadow:0 30px 90px rgba(0,0,0,.52), 0 0 60px rgba(245,179,1,.035), inset 0 1px 0 rgba(255,255,255,.08);
+  }
+  .board-frame::after { content:""; position:absolute; inset:7px; border-radius:21px; border:1px solid rgba(255,255,255,.055); pointer-events:none; }
+  #board { border-radius:14px; box-shadow:0 0 0 1px rgba(0,0,0,.62), 0 18px 40px rgba(0,0,0,.30), inset 0 0 45px rgba(0,0,0,.30); }
+  .sq.light { background:linear-gradient(145deg, #e5dfd0, #d4cebf); }
+  .sq.dark { background:linear-gradient(145deg, #817b6d, #706b60); }
+  .sq.picked { background:#f0dc7a; box-shadow:inset 0 0 0 3px rgba(255,255,255,.92), inset 0 0 20px rgba(245,179,1,.28); }
+  .controls-row { padding:7px 10px; border:1px solid rgba(255,255,255,.07); border-radius:999px; background:rgba(255,255,255,.025); box-shadow:0 12px 30px rgba(0,0,0,.20); }
+
+  @media (max-width:760px) {
+    .lobby-wrap { flex-direction:column; max-width:560px; gap:12px; }
+    .lobby-head { flex-basis:auto; }
+    .lobby-card { min-height:0; }
+    .or-divider::before, .or-divider::after { width:45px; height:1px; }
+    .room-banner { border-radius:18px; }
+    .board-frame { padding:10px; border-radius:20px; }
+    .board-frame::after { inset:5px; border-radius:15px; }
+    .controls-row { max-width:100%; border-radius:18px; }
+  }
+
+
+  /* ---------- Friends / direct invite panel ---------- */
+  .friends-panel { position:fixed; inset:0; z-index:75; display:flex; align-items:center; justify-content:center; padding:18px; background:rgba(4,5,8,.72); backdrop-filter:blur(8px); }
+  .friends-requests { display:flex; flex-direction:column; gap:8px; margin-bottom: 10px; }
+  .friends-subhead { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .friend-row-actions { display:flex; gap:6px; flex-shrink:0; }
+  .friends-card { width:min(100%, 470px); max-height:min(82vh, 650px); overflow:auto; padding:22px; border:1px solid rgba(255,255,255,.13); background:linear-gradient(145deg,rgba(25,29,40,.98),rgba(10,13,20,.98)); box-shadow:0 30px 90px rgba(0,0,0,.58); border-radius:22px; }
+  .friends-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
+  .friends-head h2 { margin:0; font-size:22px; }
+  .friends-sub { color:var(--muted); font-size:12px; margin:4px 0 16px; }
+  .friends-search { display:flex; gap:8px; }
+  .friends-search input { min-width:0; }
+  .friends-list { display:flex; flex-direction:column; gap:8px; margin-top:16px; }
+  .friend-row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:11px 12px; border:1px solid rgba(255,255,255,.08); border-radius:12px; background:rgba(255,255,255,.035); }
+  .friend-name { font-size:13px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .friend-status { color:var(--muted-2); font-size:10px; margin-top:3px; }
+  .friends-empty { color:var(--muted); font-size:12px; text-align:center; padding:18px 8px; }
+  .friends-note { color:var(--gold); font-size:12px; min-height:1.3em; margin-top:12px; }
+  @media (max-width:560px) { .friends-card { padding:17px; } .friends-search { flex-direction:column; } }
+
+
+
+/* Mobile lobby visibility fix */
+@media (max-width: 760px) {
+  html { height: auto; min-height: 100%; }
+  body {
+    height: auto;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    align-items: center;
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  }
+  .brand, .account-panel, .lobby-wrap { flex-shrink: 0; }
+  .lobby-wrap {
+    width: 100%;
+    max-height: none;
+    overflow: visible;
+    padding-bottom: 8px;
+  }
+  .lobby-card {
+    width: 100%;
+    max-width: 560px;
+    flex: none;
+  }
+  #create, #join {
+    position: relative;
+    z-index: 5;
+    min-height: 48px;
+    flex-shrink: 0;
+  }
+  .note-banner {
+    pointer-events: none;
+  }
+}
+
+
+  /* ===== REFERENCE BOARD COLORS — VISUAL ONLY ===== */
+  :root {
+    --red: #e53935;
+    --red-soft: rgba(229,57,53,0.35);
+    --blue: #1976d2;
+    --blue-soft: rgba(25,118,210,0.35);
+    --gold: #f2b400;
+    --gold-soft: rgba(242,180,0,0.35);
+    --green: #12c978;
+    --green-soft: rgba(18,201,120,0.35);
+  }
+
+  /* Warm wooden board like the supplied reference image. */
+  #board {
+    /* Dark brown fills the four cut-out/corner areas so they stay distinct from the playing squares. */
+    background: #5a3826;
+    box-shadow: 0 0 0 1px rgba(45,25,14,.92), 0 18px 40px rgba(0,0,0,.30), inset 0 0 45px rgba(35,18,9,.28);
+  }
+  .sq.light { background: #f5d9aa; }
+  .sq.dark { background: #bf885d; }
+  .sq.picked { background: #efd27f; }
+
+  /* Stronger reference-piece colors; piece shapes/glyphs remain unchanged. */
+  #board .piece.red { color: #e53935; }
+  #board .piece.blue { color: #1976d2; }
+  #board .piece.gold, #board .piece.yellow { color: #f2b400; }
+  #board .piece.green { color: #12c978; }
+  #board .piece.dead { color: #6f5a4b; opacity: .55; filter: grayscale(1); }
+
+  /* Piece squares contain chess glyphs only — never player-name text. */
+  #board .sq { text-shadow: 0 2px 2px rgba(0,0,0,.18); }
+  #board .sq .piece { text-shadow: 0 2px 2px rgba(0,0,0,.18); }
+  /* Friends refinements — keep the existing premium layout intact. */
+  .friends-requests {
+    margin: 12px 0 10px;
+    padding: 12px;
+    border: 1px solid rgba(245,179,1,.24);
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(245,179,1,.08), rgba(255,255,255,.025));
+  }
+  .friends-requests .friends-subhead {
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:8px;
+    font-size:12px;
+    font-weight:800;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--text);
+  }
+  .friends-requests .friends-subhead::before {
+    content:"";
+    width:7px;
+    height:7px;
+    border-radius:50%;
+    background:#f5b301;
+    box-shadow:0 0 12px rgba(245,179,1,.55);
+  }
+  .friend-remove-btn {
+    border-color: rgba(239,68,68,.30) !important;
+    color:#ffb4ac !important;
+  }
+  .friend-remove-btn:hover {
+    border-color:rgba(239,68,68,.55) !important;
+    background:rgba(239,68,68,.08) !important;
+  }
+  .back-toggle {
+    width:44px;
+    height:44px;
+    border-radius:14px !important;
+    border:1px solid rgba(255,255,255,.16) !important;
+    background:linear-gradient(145deg,rgba(255,255,255,.12),rgba(255,255,255,.035)) !important;
+    box-shadow:0 10px 28px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.08);
+    font-size:21px;
+    font-weight:800;
+    transition:transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+  }
+  .back-toggle:hover {
+    transform:translateY(-2px);
+    border-color:rgba(245,179,1,.42) !important;
+    box-shadow:0 14px 34px rgba(0,0,0,.36), 0 0 20px rgba(245,179,1,.08);
+  }
+  .back-toggle:active { transform:scale(.96); }
 
 </style>
 </head>
@@ -654,6 +994,7 @@
   <div class="bg-glyphs" id="bgGlyphs"></div>
 
   <button id="soundToggle" class="icon-btn sound-toggle" type="button" title="Toggle sound" aria-label="Toggle sound">🔊</button>
+  <button id="backToLobby" class="icon-btn back-toggle" type="button" title="Back to lobby" aria-label="Back to lobby" hidden>←</button>
 
   <header class="brand">
     <div class="brand-mark">4<span class="brand-pawn">&#9823;</span></div>
@@ -675,13 +1016,18 @@
     </div>
     <div id="signedIn" class="row" hidden>
       <span id="whoami"></span>
-      <button id="openFriends" class="premium-button ghost small friends-btn" type="button">Friends</button>
+      <button id="friendsBtn" class="premium-button ghost small" type="button">Friends</button>
       <button id="signOut" class="premium-button ghost small" type="button">Sign out</button>
     </div>
     <div id="authNote"></div>
   </section>
 
   <section id="lobby" class="lobby-wrap">
+    <div class="lobby-head entrance">
+      <div class="lobby-eyebrow">Created by Lazzy</div>
+      <h2>Play with friends. Own the board.</h2>
+      <p>Create a private room or join your friends with a 6-character code.</p>
+    </div>
     <div class="glass-panel lobby-card entrance">
       <h2 class="card-title">Create a match</h2>
       <div class="field">
@@ -739,6 +1085,19 @@
       </div>
       <button id="copyCode" class="premium-button ghost small" type="button">Copy Code</button>
     </div>
+    <div id="roomStatus" class="room-status" aria-live="polite">Waiting for players</div>
+
+    <div id="waitingPanel" class="waiting-panel glass-panel" hidden>
+      <div class="waiting-head">
+        <div>
+          <strong id="waitingTitle">Waiting for players</strong>
+          <span id="waitingCount">1 / 4</span>
+        </div>
+        <span class="waiting-live"><i></i> LIVE ROOM</span>
+      </div>
+      <div class="waiting-progress"><span id="waitingProgress"></span></div>
+      <div id="seatStrip" class="seat-strip"></div>
+    </div>
 
     <div id="turnBanner" class="turn-banner"></div>
 
@@ -754,7 +1113,7 @@
 
     <div class="controls-row">
       <span id="you" class="you-chip"></span>
-      <button id="inviteFriend" class="premium-button primary small" type="button">Invite Friend</button>
+      <button id="friendsGameBtn" class="premium-button ghost small" type="button">Friends</button>
       <button id="invite" class="premium-button ghost small" type="button">Copy invite link</button>
       <button id="resign" class="premium-button ghost small danger" type="button" hidden>Resign</button>
       <button id="again" class="premium-button primary small" type="button" hidden>Play again</button>
@@ -762,35 +1121,153 @@
     <div id="last" class="last-move"></div>
   </section>
 
+
+
+  <div id="friendsPanel" class="friends-panel" hidden>
+    <div class="friends-card" role="dialog" aria-modal="true" aria-labelledby="friendsTitle">
+      <div class="friends-head">
+        <h2 id="friendsTitle">Friends & Invites</h2>
+        <button id="closeFriends" class="icon-btn" type="button" aria-label="Close friends panel">✕</button>
+      </div>
+      <p class="friends-sub">Search a username, send a friend request, and invite friends to your current room.</p>
+      <div class="friends-search">
+        <input id="friendSearch" maxlength="20" placeholder="Search username" autocomplete="off">
+        <button id="addFriend" class="premium-button primary small" type="button">Add Friend</button>
+      </div>
+      <div id="friendRequests" class="friends-requests" hidden></div>
+      <div id="friendsList" class="friends-list"><div class="friends-empty">Sign in to load your friends.</div></div>
+      <div id="friendsNote" class="friends-note"></div>
+    </div>
+  </div>
+
   <div id="toasts" class="toast-stack"></div>
   <div id="note" class="note-banner"></div>
   <div id="overlay" class="overlay" hidden></div>
 
-  <div id="friendsModal" class="modal-backdrop" hidden>
-    <section class="friends-modal" role="dialog" aria-modal="true" aria-labelledby="friendsTitle">
-      <div class="modal-head">
-        <h2 id="friendsTitle" class="modal-title">Friends</h2>
-        <button id="friendsClose" class="modal-close" type="button" aria-label="Close">✕</button>
-      </div>
-      <div class="friend-tabs">
-        <button class="friend-tab active" data-friend-tab="friends" type="button">Friends</button>
-        <button class="friend-tab" data-friend-tab="requests" type="button">Requests <span id="requestBadge" class="invite-badge" hidden>0</span></button>
-        <button class="friend-tab" data-friend-tab="search" type="button">Add Friend</button>
-      </div>
-      <div id="friendSearchPane" hidden>
-        <div class="friend-search">
-          <input id="friendSearchInput" placeholder="Search username" maxlength="20" autocomplete="off">
-          <button id="friendSearchBtn" class="premium-button small" type="button">Search</button>
-        </div>
-        <div id="friendSearchResults" class="friend-list"></div>
-      </div>
-      <div id="friendRequestsPane" hidden><div id="friendRequests" class="friend-list"></div></div>
-      <div id="friendsListPane"><div id="friendsList" class="friend-list"></div></div>
-      <div id="friendsNote" class="friend-note"></div>
-    </section>
-  </div>
-
 <script src="/socket.io/socket.io.js"></script>
+<script>
+  function updateWaitingPanel() {
+    const panel = $("waitingPanel");
+    if (!panel || !room) return;
+    const colors = ["red", "blue", "yellow", "green"];
+    const count = colors.filter((c) => room.seats && room.seats[c]).length;
+    const started = !!room.started;
+    panel.hidden = started;
+    const title = $("waitingTitle");
+    const countEl = $("waitingCount");
+    const progress = $("waitingProgress");
+    const strip = $("seatStrip");
+    if (title) title.textContent = count >= 4 ? "All players ready" : "Waiting for players";
+    if (countEl) countEl.textContent = `${count} / 4`;
+    if (progress) progress.style.width = `${Math.max(25, count * 25)}%`;
+    if (strip) {
+      strip.innerHTML = colors.map((c) => {
+        const name = room.seats && room.seats[c] ? room.seats[c] : "Waiting for player";
+        const filled = !!(room.seats && room.seats[c]);
+        const isYou = !!(me && me.color === c);
+        const meta = COLOR_META[c];
+        return `<div class="seat-item ${filled ? "filled" : "empty"} ${isYou ? "you" : ""}">
+          <span class="seat-dot" style="--seat-color:${meta.hex}"></span>
+          <span class="seat-text"><span class="seat-name">${esc(name)}${isYou ? " · You" : ""}</span><span class="seat-state">${filled ? meta.label + " seat" : "Open seat"}</span></span>
+        </div>`;
+      }).join("");
+    }
+  }
+
+  function render() {
+    if (!room) return;
+    updateWaitingPanel();
+    const count = TURN_ORDER.filter((c) => room.seats && room.seats[c]).length;
+    const status = $("roomStatus");
+    if (status) status.textContent = room.started ? "Game in progress" : `Waiting for players (${count}/4)`;
+    const turnColor = TURN_ORDER[room.turnIndex];
+    const turns = me.color ? ROTATION[me.color] : 0;
+
+    // Kings that are in check get a red highlight
+    const teams = teamsMap();
+    const checkedKings = new Set();
+    let turnPlayerInCheck = false;
+    for (const c of TURN_ORDER) {
+      if (room.eliminated[c] || !Rules.isInCheck(room.state, c, teams)) continue;
+      const king = Rules.findKing(room.state, c);
+      checkedKings.add(king[0] + "," + king[1]);
+      if (c === turnColor) turnPlayerInCheck = true;
+    }
+
+    const partner = room.mode === "teams" && me.color ? Rules.TEAMMATE[me.color] : null;
+    $("you").innerHTML = me.color
+      ? `<span class="dot" style="background:${COLOR_HEX[me.color]}"></span>You are ${cap(me.color)}` +
+        (partner ? ` — partner: ${esc(room.names[partner])}` : "") +
+        (room.eliminated[me.color] ? " (out)" : "")
+      : "Room is full. You are watching.";
+
+    const turnEl = $("turnBanner");
+    turnEl.classList.toggle("over", room.over);
+    if (room.over && room.mode === "teams") {
+      turnEl.textContent = room.draw ? "Stalemate — draw!"
+        : `${room.winningTeam.map((c) => room.names[c]).join(" & ")} win!`;
+    } else if (room.over) {
+      turnEl.textContent = room.winner ? `${room.names[room.winner]} wins!` : "Game over";
+    } else if (!room.started) {
+      turnEl.textContent = `Waiting for players (${seatedCount()}/4)`;
+    } else {
+      turnEl.textContent = `${room.names[turnColor]}'s turn` + (isMyTurn() ? " (that's you)" : "") +
+        (turnPlayerInCheck ? " - in check!" : "");
+    }
+
+    $("again").hidden = !(room.over && me.color);
+    $("resign").hidden = !(room.started && !room.over && me.color && !room.eliminated[me.color]);
+
+    const hudSlots = { red: $("hudBottom"), blue: $("hudRight"), yellow: $("hudTop"), green: $("hudLeft") };
+    TURN_ORDER.forEach((c) => {
+      const host = hudSlots[c];
+      if (!host) return;
+      const name = room.seats[c] || room.names[c] || "Waiting";
+      const out = room.eliminated[c];
+      const active = room.started && !room.over && !out && c === turnColor;
+      host.innerHTML = `<div class="player-card color-${COLOR_META[c].cls} ${active ? "active" : ""} ${out ? "eliminated" : ""}">
+        <span class="pc-dot"></span><strong>${esc(name)}</strong>
+        <span class="pc-badge">${out ? "Out" : active ? "Turn" : cap(c)}</span>
+        ${room.clock ? `<span class="pc-clock" data-color="${c}"></span>` : ""}
+      </div>`;
+    });
+    updateClocks();
+
+    $("last").textContent = room.last;
+
+    const boardEl = $("board");
+    boardEl.innerHTML = "";
+    for (let i = 0; i < SIZE; i++) {
+      for (let j = 0; j < SIZE; j++) {
+        const [r, c] = toBoard(i, j, turns);
+        const el = document.createElement("div");
+        el.className = "sq";
+        if (Rules.isVoid(r, c)) {
+          el.classList.add("void");
+        } else {
+          el.classList.add((i + j) % 2 === 0 ? "light" : "dark");
+          const piece = room.state[r][c];
+          if (piece) {
+            el.classList.add(piece.dead ? "dead" : piece.color);
+            if (checkedKings.has(r + "," + c)) el.classList.add("incheck");
+
+            // Keep the existing chess glyphs/game logic, but wrap each piece in a
+            // color class so the four players can have their own piece colors.
+            const pieceEl = document.createElement("span");
+            pieceEl.className = `piece ${piece.color}${piece.dead ? " dead" : ""}`;
+            pieceEl.textContent = GLYPH[piece.type] + "\uFE0E";
+            el.appendChild(pieceEl);
+          }
+          if (selected && selected.r === r && selected.c === c) el.classList.add("picked");
+          if (targets.some(([tr, tc]) => tr === r && tc === c)) el.classList.add(piece ? "capture" : "target");
+          el.addEventListener("click", () => onSquareClick(r, c));
+        }
+        boardEl.appendChild(el);
+      }
+    }
+  }
+
+</script>
 <script src="rules.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
@@ -804,7 +1281,9 @@
     yellow: { hex: "#f5b301", cls: "gold",  label: "Gold"  },
     green:  { hex: "#22c55e", cls: "green", label: "Green" },
   };
-  const COLOR_HEX = Object.fromEntries(Object.entries(COLOR_META).map(([key, meta]) => [key, meta.hex]));
+  const COLOR_HEX = Object.fromEntries(
+    Object.entries(COLOR_META).map(([key, meta]) => [key, meta.hex])
+  );
   // How many quarter turns (counter-clockwise) bring each color to the bottom of the screen
   const ROTATION = { green: 0, red: 1, blue: 2, yellow: 3 };
   // Clockwise order used to lay player cards around the board, starting at the bottom
@@ -1052,200 +1531,10 @@
     await refreshAccountUI();
   });
 
-  sb.auth.onAuthStateChange(() => {
-    setTimeout(async () => { await refreshAccountUI(); await setupInviteRealtime(); }, 0);
-  });
+  sb.auth.onAuthStateChange(() => refreshAccountUI());
   // Clears any sign-in link tokens from the URL (if we just arrived from the emailed link),
   // then updates the account panel either way.
-  handleAuthRedirect().then(async () => { await refreshAccountUI(); await setupInviteRealtime(); });
-
-
-  /* ---------- Friends + direct game invites ---------- */
-  let friendTab = "friends";
-  let friendsCache = [];
-  let friendRequestsCache = [];
-  let inviteChannel = null;
-
-  function currentUserId() {
-    return profile && profile.id ? profile.id : null;
-  }
-
-  function requireSignedIn() {
-    if (!currentUserId()) {
-      toast("Sign in with Google first.", "danger");
-      return false;
-    }
-    return true;
-  }
-
-  function friendEsc(text) {
-    return String(text || "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[ch]));
-  }
-
-  function setFriendNote(msg, bad=false) {
-    $("friendsNote").textContent = msg || "";
-    $("friendsNote").style.color = bad ? "var(--red)" : "";
-  }
-
-  function openFriends(tab="friends") {
-    if (!requireSignedIn()) return;
-    $("friendsModal").hidden = false;
-    setFriendTab(tab);
-    loadFriendsData();
-  }
-
-  function closeFriends() { $("friendsModal").hidden = true; }
-
-  function setFriendTab(tab) {
-    friendTab = tab;
-    document.querySelectorAll("[data-friend-tab]").forEach(b => b.classList.toggle("active", b.dataset.friendTab === tab));
-    $("friendsListPane").hidden = tab !== "friends";
-    $("friendRequestsPane").hidden = tab !== "requests";
-    $("friendSearchPane").hidden = tab !== "search";
-    setFriendNote("");
-  }
-
-  async function loadFriendsData() {
-    const uid = currentUserId();
-    if (!uid) return;
-    setFriendNote("Loading...");
-    const { data, error } = await sb.from("friendships")
-      .select("id, requester_id, addressee_id, status, created_at")
-      .or(`requester_id.eq.${uid},addressee_id.eq.${uid}`)
-      .order("created_at", { ascending:false });
-    if (error) { setFriendNote(error.message, true); return; }
-    const rows = data || [];
-    const friendIds = rows.filter(r => r.status === "accepted").map(r => r.requester_id === uid ? r.addressee_id : r.requester_id);
-    const requestRows = rows.filter(r => r.status === "pending" && r.addressee_id === uid);
-    const sentRows = rows.filter(r => r.status === "pending" && r.requester_id === uid);
-    let profiles = [];
-    if (friendIds.length || requestRows.length || sentRows.length) {
-      const ids = [...new Set([...friendIds, ...requestRows.map(r=>r.requester_id), ...sentRows.map(r=>r.addressee_id)])];
-      const result = await sb.from("profiles").select("id, username").in("id", ids);
-      if (result.error) { setFriendNote(result.error.message, true); return; }
-      profiles = result.data || [];
-    }
-    const byId = Object.fromEntries(profiles.map(p => [p.id, p]));
-    friendsCache = friendIds.map(id => ({ ...byId[id], id })).filter(x => x.username);
-    friendRequestsCache = requestRows.map(r => ({ ...r, profile: byId[r.requester_id] })).filter(x => x.profile);
-    const pendingSent = sentRows.map(r => ({ ...r, profile: byId[r.addressee_id] })).filter(x => x.profile);
-    renderFriendsList();
-    renderFriendRequests(pendingSent);
-    $("requestBadge").hidden = friendRequestsCache.length === 0;
-    $("requestBadge").textContent = String(friendRequestsCache.length);
-    setFriendNote("");
-  }
-
-  function renderFriendsList() {
-    const el = $("friendsList");
-    if (!friendsCache.length) { el.innerHTML = '<div class="friend-empty">No friends yet. Open <b>Add Friend</b> to find someone.</div>'; return; }
-    el.innerHTML = friendsCache.map(f => `
-      <div class="friend-item">
-        <div class="friend-main"><div class="friend-name">${friendEsc(f.username)}</div><div class="friend-meta">Friend</div></div>
-        <div class="friend-actions"><button class="premium-button primary small invite-friend-btn" data-id="${friendEsc(f.id)}" type="button">Invite</button></div>
-      </div>`).join("");
-  }
-
-  function renderFriendRequests(sentRows=[]) {
-    const el = $("friendRequests");
-    const incoming = friendRequestsCache.map(r => `
-      <div class="friend-item">
-        <div class="friend-main"><div class="friend-name">${friendEsc(r.profile.username)}</div><div class="friend-meta">Wants to be your friend</div></div>
-        <div class="friend-actions"><button class="premium-button primary small accept-friend-btn" data-id="${r.id}" type="button">Accept</button><button class="premium-button ghost small reject-friend-btn" data-id="${r.id}" type="button">Decline</button></div>
-      </div>`).join("");
-    const outgoing = sentRows.map(r => `
-      <div class="friend-item"><div class="friend-main"><div class="friend-name">${friendEsc(r.profile.username)}</div><div class="friend-meta">Request sent</div></div></div>`).join("");
-    el.innerHTML = incoming + outgoing || '<div class="friend-empty">No pending requests.</div>';
-  }
-
-  async function searchFriends() {
-    if (!requireSignedIn()) return;
-    const q = $("friendSearchInput").value.trim();
-    const el = $("friendSearchResults");
-    if (!q) { el.innerHTML = '<div class="friend-empty">Enter a username.</div>'; return; }
-    const uid = currentUserId();
-    el.innerHTML = '<div class="friend-empty">Searching...</div>';
-    const { data, error } = await sb.from("profiles").select("id, username").ilike("username", `%${q}%`).neq("id", uid).limit(10);
-    if (error) { el.innerHTML = `<div class="friend-empty">${friendEsc(error.message)}</div>`; return; }
-    if (!data?.length) { el.innerHTML = '<div class="friend-empty">No user found.</div>'; return; }
-    el.innerHTML = data.map(u => `
-      <div class="friend-item"><div class="friend-main"><div class="friend-name">${friendEsc(u.username)}</div><div class="friend-meta">Chess player</div></div>
-      <div class="friend-actions"><button class="premium-button primary small add-friend-btn" data-id="${friendEsc(u.id)}" data-name="${friendEsc(u.username)}" type="button">Add</button></div></div>`).join("");
-  }
-
-  async function addFriend(addresseeId, name) {
-    const uid = currentUserId();
-    if (!uid || uid === addresseeId) return;
-    const { data: existing, error: checkError } = await sb.from("friendships").select("id, status, requester_id, addressee_id").or(`and(requester_id.eq.${uid},addressee_id.eq.${addresseeId}),and(requester_id.eq.${addresseeId},addressee_id.eq.${uid})`).limit(1);
-    if (checkError) { setFriendNote(checkError.message, true); return; }
-    if (existing?.length) {
-      const row = existing[0];
-      if (row.status === "accepted") setFriendNote(`${name} is already your friend.`);
-      else if (row.requester_id === uid) setFriendNote(`Request already sent to ${name}.`);
-      else setFriendNote(`${name} already sent you a request. Open Requests.`);
-      return;
-    }
-    const { error } = await sb.from("friendships").insert({ requester_id: uid, addressee_id: addresseeId, status:"pending" });
-    if (error) { setFriendNote(error.message, true); return; }
-    setFriendNote(`Friend request sent to ${name}.`);
-    searchFriends();
-  }
-
-  async function updateFriendRequest(id, status) {
-    const { error } = await sb.from("friendships").update({ status }).eq("id", id);
-    if (error) { setFriendNote(error.message, true); return; }
-    await loadFriendsData();
-  }
-
-  async function inviteFriend(friendId) {
-    if (!requireSignedIn()) return;
-    if (!me.code) { setFriendNote("Create or join a game first."); return; }
-    const { data: friend, error: friendError } = await sb.from("friendships")
-      .select("id").eq("status","accepted")
-      .or(`and(requester_id.eq.${currentUserId()},addressee_id.eq.${friendId}),and(requester_id.eq.${friendId},addressee_id.eq.${currentUserId()})`).limit(1);
-    if (friendError || !friend?.length) { setFriendNote("You can only invite friends.", true); return; }
-    const { error } = await sb.from("game_invites").insert({ inviter_id: currentUserId(), invitee_id: friendId, room_code: me.code });
-    if (error) { setFriendNote(error.message, true); return; }
-    toast("Invite sent ✓");
-    closeFriends();
-  }
-
-  async function setupInviteRealtime() {
-    if (inviteChannel) { await sb.removeChannel(inviteChannel); inviteChannel = null; }
-    const uid = currentUserId();
-    if (!uid) return;
-    inviteChannel = sb.channel("game-invites-" + uid)
-      .on("postgres_changes", { event:"INSERT", schema:"public", table:"game_invites", filter:`invitee_id=eq.${uid}` }, async payload => {
-        const inv = payload.new;
-        const { data: p } = await sb.from("profiles").select("username").eq("id", inv.inviter_id).maybeSingle();
-        showIncomingInvite(inv, p?.username || "A friend");
-      })
-      .subscribe();
-  }
-
-  function showIncomingInvite(inv, inviterName) {
-    const ok = confirm(`${inviterName} invited you to a 4-player chess game.\n\nJoin room ${inv.room_code}?`);
-    if (!ok) return;
-    $("code").value = inv.room_code;
-    join(inv.room_code);
-    sb.from("game_invites").update({ status:"accepted" }).eq("id", inv.id).then(()=>{});
-  }
-
-  $("openFriends").addEventListener("click", () => openFriends("friends"));
-  $("inviteFriend").addEventListener("click", () => openFriends("friends"));
-  $("friendsClose").addEventListener("click", closeFriends);
-  $("friendsModal").addEventListener("click", e => { if (e.target === $("friendsModal")) closeFriends(); });
-  document.querySelectorAll("[data-friend-tab]").forEach(btn => btn.addEventListener("click", () => setFriendTab(btn.dataset.friendTab)));
-  $("friendSearchBtn").addEventListener("click", searchFriends);
-  $("friendSearchInput").addEventListener("keydown", e => { if (e.key === "Enter") searchFriends(); });
-  $("friendsList").addEventListener("click", e => { const b=e.target.closest(".invite-friend-btn"); if(b) inviteFriend(b.dataset.id); });
-  $("friendRequests").addEventListener("click", e => {
-    const accept=e.target.closest(".accept-friend-btn");
-    const reject=e.target.closest(".reject-friend-btn");
-    if (accept) updateFriendRequest(accept.dataset.id, "accepted");
-    if (reject) updateFriendRequest(reject.dataset.id, "rejected");
-  });
-  $("friendSearchResults").addEventListener("click", e => { const b=e.target.closest(".add-friend-btn"); if(b) addFriend(b.dataset.id, b.dataset.name); });
+  handleAuthRedirect().then(refreshAccountUI);
 
   const socket = io();
   let me = { code: null, color: null };
@@ -1269,6 +1558,19 @@
   /* ---------- Names and joining ---------- */
   try { $("name").value = localStorage.getItem("chess-name") || ""; } catch (e) {}
 
+  // A stable id for this browser, used by the server to recognize the same
+  // player across reconnects/rejoins so they keep their seat and color.
+  function myPlayerId() {
+    let id;
+    try { id = localStorage.getItem("chess-player-id"); } catch (e) {}
+    if (!id) {
+      id = (crypto && crypto.randomUUID) ? crypto.randomUUID() :
+        `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      try { localStorage.setItem("chess-player-id", id); } catch (e) {}
+    }
+    return id;
+  }
+
   function myName() {
     if (profile) return profile.username;
     const name = $("name").value.trim().slice(0, 16);
@@ -1279,20 +1581,20 @@
   function join(code) {
     code = code.trim().toUpperCase();
     if (!code) return;
-    const savedColor = sessionStorage.getItem("seat-" + code) || null;
-    socket.emit("joinRoom", { code, color: savedColor, name: myName() });
+    const savedColor = localStorage.getItem("seat-" + code) || null;
+    socket.emit("joinRoom", { code, color: savedColor, name: myName(), playerId: myPlayerId() });
   }
 
   socket.on("connect", () => {
     $("note").textContent = "";
     if (me.code) {                                   // reconnect after a dropped connection
-      socket.emit("joinRoom", { code: me.code, color: me.color, name: myName() });
+      socket.emit("joinRoom", { code: me.code, color: me.color, name: myName(), playerId: myPlayerId() });
       return;
     }
     const code = location.hash.slice(1).toUpperCase();
     if (!code) return;
     $("code").value = code;
-    if (sessionStorage.getItem("seat-" + code) !== null) {
+    if (localStorage.getItem("seat-" + code) !== null) {
       join(code);                                    // you were already in this room
     } else {
       $("note").textContent = "Type your name, then press Join room.";
@@ -1304,14 +1606,17 @@
 
   socket.on("joined", ({ code, color }) => {
     me = { code, color };
-    sessionStorage.setItem("seat-" + code, color || "");
+    localStorage.setItem("seat-" + code, color || "");
     location.hash = code;
     $("note").textContent = "";
     $("account").hidden = true;
     $("lobby").hidden = true;
     $("game").hidden = false;
+    $("backToLobby").hidden = false;
     $("roomBanner").hidden = false;
     $("roomCodeText").textContent = code;
+    $("roomStatus").textContent = "Waiting for players";
+    $("waitingPanel").hidden = false;
     gameStartedShown = false;
   });
 
@@ -1332,9 +1637,18 @@
       minutes: Number($("minutes").value),
       bonus: Number($("bonus").value),
       mode: selectedMode,
+      playerId: myPlayerId(),
     });
   });
   $("join").addEventListener("click", () => { Sound.play("move"); join($("code").value); });
+  $("backToLobby").addEventListener("click", () => {
+    // Leave immediately without a confirmation popup. Keep the saved seat so that
+    // returning to the same room restores the player's original color/position.
+    // The server will release the socket seat on disconnect, while the client
+    // keeps the color preference in localStorage for the next join.
+    location.hash = "";
+    location.reload();
+  });
   $("again").addEventListener("click", () => socket.emit("rematch"));
   $("resign").addEventListener("click", () => {
     const msg = room && room.mode === "teams"
@@ -1363,6 +1677,169 @@
       $("note").textContent = "Room code: " + code;
     }
   });
+
+
+
+  /* ---------- Friends / direct invite (Step 3) ---------- */
+  let friendsCache = [];
+  let requestsCache = [];
+  function openFriendsPanel() {
+    const panel = $("friendsPanel");
+    if (!panel) return;
+    panel.hidden = false;
+    $("friendsNote").textContent = "";
+    loadFriends();
+  }
+  function closeFriendsPanel() { $("friendsPanel").hidden = true; }
+  function friendMessage(message) { $("friendsNote").textContent = message; }
+  function renderFriends() {
+    const list = $("friendsList");
+    if (!list) return;
+    if (!friendsCache.length) {
+      list.innerHTML = '<div class="friends-empty">No friends yet. Search a username above to send a request.</div>';
+      return;
+    }
+    list.innerHTML = friendsCache.map((f) => `
+      <div class="friend-row">
+        <div style="min-width:0"><div class="friend-name">${esc(f.username)}</div><div class="friend-status">${esc(f.status || "Friend")}</div></div>
+        <button class="premium-button ghost small friend-remove-btn" type="button" data-remove-friend="${esc(f.id)}">Remove</button>
+      </div>`).join("");
+    list.querySelectorAll("[data-remove-friend]").forEach((btn) => btn.addEventListener("click", () => removeFriend(btn.getAttribute("data-remove-friend"))));
+  }
+  function renderRequests() {
+    const box = $("friendRequests");
+    if (!box) return;
+    if (!requestsCache.length) { box.hidden = true; box.innerHTML = ""; return; }
+    box.hidden = false;
+    box.innerHTML = '<div class="friends-subhead">Friend requests · ' + requestsCache.length + '</div>' + requestsCache.map((r) => `
+      <div class="friend-row">
+        <div style="min-width:0"><div class="friend-name">${esc(r.username)}</div><div class="friend-status">wants to be friends</div></div>
+        <div class="friend-row-actions">
+          <button class="premium-button primary small" type="button" data-accept="${esc(r.requestId)}">Accept</button>
+          <button class="premium-button ghost small" type="button" data-decline="${esc(r.requestId)}">Decline</button>
+        </div>
+      </div>`).join("");
+    box.querySelectorAll("[data-accept]").forEach((btn) => btn.addEventListener("click", () => respondRequest(btn.getAttribute("data-accept"), true)));
+    box.querySelectorAll("[data-decline]").forEach((btn) => btn.addEventListener("click", () => respondRequest(btn.getAttribute("data-decline"), false)));
+  }
+  async function removeFriend(friendId) {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { friendMessage("Please sign in first."); return; }
+
+    const friend = friendsCache.find(f => String(f.id) === String(friendId));
+    if (!friend) return;
+
+    if (!confirm("Remove " + friend.username + " from your friends?")) return;
+
+    const uid = session.user.id;
+    const { error } = await sb.from("friendships")
+      .delete()
+      .eq("status", "accepted")
+      .or(`and(user_id.eq.${uid},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${uid})`);
+
+    if (error) {
+      friendMessage("Could not remove friend: " + error.message);
+      return;
+    }
+
+    friendMessage(friend.username + " removed from your friends.");
+    loadFriends();
+  }
+
+  async function respondRequest(requestId, accept) {
+    if (accept) {
+      const { error } = await sb.from("friendships").update({ status: "accepted" }).eq("id", requestId);
+      if (error) { friendMessage("Could not accept request."); return; }
+      friendMessage("Friend request accepted.");
+    } else {
+      const { error } = await sb.from("friendships").delete().eq("id", requestId);
+      if (error) { friendMessage("Could not decline request."); return; }
+      friendMessage("Friend request declined.");
+    }
+    loadFriends();
+  }
+  async function loadFriends() {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { friendsCache = []; requestsCache = []; renderFriends(); renderRequests(); friendMessage("Please sign in first."); return; }
+    const uid = session.user.id;
+
+    // Do not depend on a Supabase FK relationship between friendships and profiles.
+    // The friendships table is user_id/friend_id in the current database.
+    const [sentRes, receivedRes, incomingRes] = await Promise.all([
+      sb.from("friendships").select("friend_id, status").eq("user_id", uid).eq("status", "accepted"),
+      sb.from("friendships").select("user_id, status").eq("friend_id", uid).eq("status", "accepted"),
+      sb.from("friendships").select("id, user_id, status").eq("friend_id", uid).eq("status", "pending"),
+    ]);
+
+    if (sentRes.error || receivedRes.error || incomingRes.error) {
+      friendsCache = [];
+      requestsCache = [];
+      renderFriends();
+      renderRequests();
+      const err = sentRes.error || receivedRes.error || incomingRes.error;
+      friendMessage("Could not load friends: " + (err?.message || "database error"));
+      return;
+    }
+
+    const friendIds = [
+      ...(sentRes.data || []).map(r => r.friend_id),
+      ...(receivedRes.data || []).map(r => r.user_id),
+      ...(incomingRes.data || []).map(r => r.user_id)
+    ].filter(Boolean);
+    const uniqueIds = [...new Set(friendIds)];
+    let profiles = [];
+
+    if (uniqueIds.length) {
+      const profileRes = await sb.from("profiles").select("id, username").in("id", uniqueIds);
+      if (profileRes.error) {
+        friendsCache = [];
+        requestsCache = [];
+        renderFriends();
+        renderRequests();
+        friendMessage("Could not load friend profiles: " + profileRes.error.message);
+        return;
+      }
+      profiles = profileRes.data || [];
+    }
+
+    const names = new Map(profiles.map(p => [String(p.id), p.username]));
+    const merged = new Map();
+    (sentRes.data || []).forEach(r => merged.set(String(r.friend_id), { id:r.friend_id, username:names.get(String(r.friend_id)) || "Unknown" }));
+    (receivedRes.data || []).forEach(r => merged.set(String(r.user_id), { id:r.user_id, username:names.get(String(r.user_id)) || "Unknown" }));
+
+    friendsCache = Array.from(merged.values()).map(f => ({ ...f, status:"Friend" }));
+    requestsCache = (incomingRes.data || []).map(r => ({
+      requestId:r.id,
+      id:r.user_id,
+      username:names.get(String(r.user_id)) || "Unknown"
+    }));
+    renderFriends();
+    renderRequests();
+  }
+  async function addFriend() {
+    const username = $("friendSearch").value.trim().slice(0,20);
+    if (!username) { friendMessage("Enter a username first."); return; }
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { friendMessage("Please sign in first."); return; }
+    const { data: target, error: findError } = await sb.from("profiles").select("id, username").ilike("username", username).maybeSingle();
+    if (findError || !target) { friendMessage("Username not found."); return; }
+    if (target.id === session.user.id) { friendMessage("You cannot add yourself."); return; }
+    const { error } = await sb.from("friendships").insert({ user_id: session.user.id, friend_id: target.id, status: "pending" });
+    if (error) { friendMessage(error.code === "23505" ? "Request already exists." : "Could not send request. Check Step 3 SQL setup."); return; }
+    $("friendSearch").value = "";
+    friendMessage("Friend request sent to " + target.username + ".");
+  }
+  $("friendsBtn")?.addEventListener("click", () => {
+    $("friendsPanel")?.removeAttribute("data-game-mode");
+    openFriendsPanel();
+  });
+  $("friendsGameBtn")?.addEventListener("click", () => {
+    if ($("friendsPanel")) $("friendsPanel").dataset.gameMode = "true";
+    openFriendsPanel();
+  });
+  $("closeFriends")?.addEventListener("click", closeFriendsPanel);
+  $("addFriend")?.addEventListener("click", addFriend);
+  $("friendsPanel")?.addEventListener("click", (e) => { if (e.target === $("friendsPanel")) closeFriendsPanel(); });
 
   /* ---------- Rotating the board ---------- */
   // Turns a square on the screen (i, j) into the real board square (r, c)
@@ -1441,91 +1918,6 @@
     }
     render();
   }
-
-  function render() {
-      if (!room) return;
-      const turnColor = TURN_ORDER[room.turnIndex];
-      const turns = me.color ? ROTATION[me.color] : 0;
-  
-      // Kings that are in check get a red highlight
-      const teams = teamsMap();
-      const checkedKings = new Set();
-      let turnPlayerInCheck = false;
-      for (const c of TURN_ORDER) {
-        if (room.eliminated[c] || !Rules.isInCheck(room.state, c, teams)) continue;
-        const king = Rules.findKing(room.state, c);
-        checkedKings.add(king[0] + "," + king[1]);
-        if (c === turnColor) turnPlayerInCheck = true;
-      }
-  
-      const partner = room.mode === "teams" && me.color ? Rules.TEAMMATE[me.color] : null;
-      $("you").innerHTML = me.color
-        ? `<span class="dot" style="background:${COLOR_HEX[me.color]}"></span>You are ${cap(me.color)}` +
-          (partner ? ` — partner: ${esc(room.names[partner])}` : "") +
-          (room.eliminated[me.color] ? " (out)" : "")
-        : "Room is full. You are watching.";
-  
-      const turnEl = $("turnBanner");
-      turnEl.classList.toggle("over", room.over);
-      if (room.over && room.mode === "teams") {
-        turnEl.textContent = room.draw ? "Stalemate — draw!"
-          : `${room.winningTeam.map((c) => room.names[c]).join(" & ")} win!`;
-      } else if (room.over) {
-        turnEl.textContent = room.winner ? `${room.names[room.winner]} wins!` : "Game over";
-      } else if (!room.started) {
-        turnEl.textContent = `Waiting for players (${seatedCount()}/4)`;
-      } else {
-        turnEl.textContent = `${room.names[turnColor]}'s turn` + (isMyTurn() ? " (that's you)" : "") +
-          (turnPlayerInCheck ? " - in check!" : "");
-      }
-  
-      $("again").hidden = !(room.over && me.color);
-      $("resign").hidden = !(room.started && !room.over && me.color && !room.eliminated[me.color]);
-  
-      const hudSlots = { red: $("hudBottom"), blue: $("hudRight"), yellow: $("hudTop"), green: $("hudLeft") };
-      TURN_ORDER.forEach((c) => {
-        const host = hudSlots[c];
-        if (!host) return;
-        const name = room.seats[c] || room.names[c] || "Waiting";
-        const out = room.eliminated[c];
-        const active = room.started && !room.over && !out && c === turnColor;
-        host.innerHTML = `<div class="player-card color-${COLOR_META[c].cls} ${active ? "active" : ""} ${out ? "eliminated" : ""}">
-          <span class="pc-dot"></span><strong>${esc(name)}</strong>
-          <span class="pc-badge">${out ? "Out" : active ? "Turn" : cap(c)}</span>
-          ${room.clock ? `<span class="pc-clock" data-color="${c}"></span>` : ""}
-        </div>`;
-      });
-      updateClocks();
-  
-      $("last").textContent = room.last;
-  
-      const boardEl = $("board");
-      boardEl.innerHTML = "";
-      for (let i = 0; i < SIZE; i++) {
-        for (let j = 0; j < SIZE; j++) {
-          const [r, c] = toBoard(i, j, turns);
-          const el = document.createElement("div");
-          el.className = "sq";
-          if (Rules.isVoid(r, c)) {
-            el.classList.add("void");
-          } else {
-            el.classList.add((i + j) % 2 === 0 ? "light" : "dark");
-            const piece = room.state[r][c];
-            if (piece) {
-              el.classList.add(piece.dead ? "dead" : piece.color);
-              if (checkedKings.has(r + "," + c)) el.classList.add("incheck");
-              el.textContent = GLYPH[piece.type] + "\uFE0E";
-            }
-            if (selected && selected.r === r && selected.c === c) el.classList.add("picked");
-            if (targets.some(([tr, tc]) => tr === r && tc === c)) el.classList.add(piece ? "capture" : "target");
-            el.addEventListener("click", () => onSquareClick(r, c));
-          }
-          boardEl.appendChild(el);
-        }
-      }
-    }
-  
-  
 </script>
 </body>
 </html>
