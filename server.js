@@ -45,6 +45,7 @@ function newRoom(minutes, bonusSeconds, mode) {
   const room = {
     seats: { red: null, blue: null, yellow: null, green: null },
     names: { red: null, blue: null, yellow: null, green: null },
+    playerIds: { red: null, blue: null, yellow: null, green: null },
     emptySince: null,
     mode: MODES.includes(mode) ? mode : "ffa",
     clock: minutes > 0 ? { base: minutes * 60 * 1000, bonus: bonusSeconds * 1000 } : null,
