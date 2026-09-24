@@ -1815,8 +1815,14 @@
     $("friendSearch").value = "";
     friendMessage("Friend request sent to " + target.username + ".");
   }
-  $("friendsBtn")?.addEventListener("click", openFriendsPanel);
-  $("friendsGameBtn")?.addEventListener("click", openFriendsPanel);
+  $("friendsBtn")?.addEventListener("click", () => {
+    $("friendsPanel")?.removeAttribute("data-game-mode");
+    openFriendsPanel();
+  });
+  $("friendsGameBtn")?.addEventListener("click", () => {
+    if ($("friendsPanel")) $("friendsPanel").dataset.gameMode = "true";
+    openFriendsPanel();
+  });
   $("closeFriends")?.addEventListener("click", closeFriendsPanel);
   $("addFriend")?.addEventListener("click", addFriend);
   $("friendsPanel")?.addEventListener("click", (e) => { if (e.target === $("friendsPanel")) closeFriendsPanel(); });
