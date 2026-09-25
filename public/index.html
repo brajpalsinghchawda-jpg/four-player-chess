@@ -1558,19 +1558,6 @@
   /* ---------- Names and joining ---------- */
   try { $("name").value = localStorage.getItem("chess-name") || ""; } catch (e) {}
 
-  // A stable id for this browser, used by the server to recognize the same
-  // player across reconnects/rejoins so they keep their seat and color.
-  function myPlayerId() {
-    let id;
-    try { id = localStorage.getItem("chess-player-id"); } catch (e) {}
-    if (!id) {
-      id = (crypto && crypto.randomUUID) ? crypto.randomUUID() :
-        `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      try { localStorage.setItem("chess-player-id", id); } catch (e) {}
-    }
-    return id;
-  }
-
   function myName() {
     if (profile) return profile.username;
     const name = $("name").value.trim().slice(0, 16);
@@ -1578,17 +1565,34 @@
     return name;
   }
 
+  // Stable identity for this browser/device. The server uses this ID to
+  // restore the exact same seat after leaving/rejoining and to prevent
+  // the same player from occupying two seats.
+  function playerId() {
+    try {
+      let id = localStorage.getItem("four-player-chess-player-id");
+      if (!id) {
+        id = (crypto.randomUUID ? crypto.randomUUID() :
+          (Date.now().toString(36) + Math.random().toString(36).slice(2)));
+        localStorage.setItem("four-player-chess-player-id", id);
+      }
+      return id;
+    } catch (e) {
+      return "browser-" + Date.now().toString(36) + Math.random().toString(36).slice(2);
+    }
+  }
+
   function join(code) {
     code = code.trim().toUpperCase();
     if (!code) return;
     const savedColor = localStorage.getItem("seat-" + code) || null;
-    socket.emit("joinRoom", { code, color: savedColor, name: myName(), playerId: myPlayerId() });
+    socket.emit("joinRoom", { code, color: savedColor, name: myName(), playerId: playerId() });
   }
 
   socket.on("connect", () => {
     $("note").textContent = "";
     if (me.code) {                                   // reconnect after a dropped connection
-      socket.emit("joinRoom", { code: me.code, color: me.color, name: myName(), playerId: myPlayerId() });
+      socket.emit("joinRoom", { code: me.code, color: me.color, name: myName(), playerId: playerId() });
       return;
     }
     const code = location.hash.slice(1).toUpperCase();
@@ -1634,10 +1638,10 @@
     Sound.play("move");
     socket.emit("createRoom", {
       name: myName(),
+      playerId: playerId(),
       minutes: Number($("minutes").value),
       bonus: Number($("bonus").value),
       mode: selectedMode,
-      playerId: myPlayerId(),
     });
   });
   $("join").addEventListener("click", () => { Sound.play("move"); join($("code").value); });
