@@ -1055,7 +1055,7 @@
 #friendsBtn, #friendsPanel, [data-friends], .friends-button, .friends-panel { display:none !important; }
 
   /* ---------- Two-screen Telegram lobby ---------- */
-  .landing-screen { min-height: calc(100vh - 150px); display:flex; align-items:center; justify-content:center; padding:24px 18px 50px; }
+  .landing-screen { display:none !important; min-height: calc(100vh - 150px); display:flex; align-items:center; justify-content:center; padding:24px 18px 50px; }
   .landing-inner { width:min(760px,100%); text-align:center; animation:cardIn 420ms var(--ease); }
   .landing-head { margin-bottom:28px; }
   .landing-kicker { display:inline-flex; align-items:center; padding:8px 14px; border:1px solid rgba(245,179,1,.25); border-radius:999px; color:var(--muted); font-size:11px; font-weight:800; letter-spacing:.14em; background:rgba(245,179,1,.06); margin-bottom:16px; }
@@ -1074,6 +1074,12 @@
   #lobby.setup-create #joinSetupCard, #lobby.setup-join #createSetupCard { display:none; }
   #lobby.setup-create .or-divider, #lobby.setup-join .or-divider { display:none; }
   @media (max-width:560px) { .landing-actions { grid-template-columns:1fr; } .landing-card { min-height:155px; } .landing-screen { padding-top:8px; } }
+  /* ---------- Two-screen app flow: Lobby -> Chess Board ---------- */
+  #lobby { position: relative; z-index: 2; }
+  #game[hidden] { display:none !important; }
+  #game:not([hidden]) { min-height:100vh; }
+  #brandHeader[hidden] { display:none !important; }
+
 </style>
 </head>
 <body>
@@ -1083,7 +1089,7 @@
   <button id="soundToggle" class="icon-btn sound-toggle" type="button" title="Toggle sound" aria-label="Toggle sound">🔊</button>
   <button id="backToLobby" class="icon-btn back-toggle" type="button" title="Back to lobby" aria-label="Back to lobby" hidden>←</button>
 
-  <header class="brand">
+  <header id="brandHeader" class="brand">
     <div class="lobby-eyebrow">Created by Lazzy</div>
     <h1>Four Player Chess</h1>
     <p class="tagline">One board. Four minds.</p>
@@ -1771,6 +1777,7 @@
   socket.on("joined", ({ code, color }) => {
     const landingScreen = document.getElementById("landingScreen"); if (landingScreen) landingScreen.hidden = true;
     const setupBack = document.getElementById("setupBack"); if (setupBack) setupBack.hidden = true;
+    const brandHeader = document.getElementById("brandHeader"); if (brandHeader) brandHeader.hidden = true;
     me = { code, color };
     localStorage.setItem("seat-" + code, color || "");
     location.hash = code;
@@ -1843,6 +1850,7 @@
       $("note").textContent = "Room code: " + code;
     }
   });
+
 
 
 
