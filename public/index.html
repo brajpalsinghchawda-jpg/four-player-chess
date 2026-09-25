@@ -1008,6 +1008,51 @@
 
 
 
+
+  /* ---------- Telegram Mini App lobby mode ---------- */
+  .brand .lobby-eyebrow {
+    margin-bottom: 8px;
+  }
+  .brand .lobby-eyebrow::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #20d47a;
+    box-shadow: 0 0 10px rgba(32,212,122,.55);
+  }
+  .telegram-lobby-note { display:none; }
+  .lobby-wrap {
+    display: grid !important;
+    grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+    align-items: stretch !important;
+    gap: 18px !important;
+    width: min(980px, calc(100% - 28px)) !important;
+    max-width: 980px !important;
+    margin: 4px auto 28px !important;
+  }
+  .lobby-head {
+    grid-column: 1 / -1;
+    width: 100% !important;
+    padding-bottom: 2px !important;
+  }
+  .lobby-card {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0;
+  }
+  .or-divider { display: none !important; }
+  #account { display: none !important; }
+  @media (max-width: 760px) {
+    .lobby-wrap {
+      grid-template-columns: 1fr;
+      width: min(100% - 28px, 560px) !important;
+    }
+    .lobby-head { grid-column: 1; }
+  }
+
+/* Telegram version: keep Friends functionality in code, but hide Friends UI. */
+#friendsBtn, #friendsPanel, [data-friends], .friends-button, .friends-panel { display:none !important; }
 </style>
 </head>
 <body>
@@ -1018,12 +1063,12 @@
   <button id="backToLobby" class="icon-btn back-toggle" type="button" title="Back to lobby" aria-label="Back to lobby" hidden>←</button>
 
   <header class="brand">
-    <div class="brand-mark">4<span class="brand-pawn">&#9823;</span></div>
+    <div class="lobby-eyebrow">Created by Lazzy</div>
     <h1>Four Player Chess</h1>
     <p class="tagline">One board. Four minds.</p>
   </header>
 
-  <section id="account" class="glass-panel account-panel">
+  <section id="account" class="glass-panel account-panel" hidden>
     <div id="signedOut" class="row">
       <input id="email" type="email" placeholder="Email" autocomplete="email">
       <button id="sendCode" class="premium-button ghost small" type="button">Sign in</button>
@@ -1045,9 +1090,8 @@
 
   <section id="lobby" class="lobby-wrap">
     <div class="lobby-head entrance">
-      <div class="lobby-eyebrow">Created by Lazzy</div>
       <h2>Play with friends. Own the board.</h2>
-      <p>Create a private room or join your friends with a 6-character code.</p>
+      <p>Create a match or join your friends with a 6-character room code.</p>
     </div>
     <div class="glass-panel lobby-card entrance">
       <h2 class="card-title">Create a match</h2>
@@ -1134,8 +1178,8 @@
 
     <div class="controls-row">
       <span id="you" class="you-chip"></span>
-      <button id="friendsGameBtn" class="premium-button ghost small" type="button">Friends</button>
-      <button id="invite" class="premium-button ghost small" type="button">Copy invite link</button>
+      <button id="friendsGameBtn" class="premium-button ghost small" type="button" hidden>Friends</button>
+      <button id="invite" class="premium-button ghost small" type="button" hidden>Copy invite link</button>
       <button id="resign" class="premium-button ghost small danger" type="button" hidden>Resign</button>
       <button id="again" class="premium-button primary small" type="button" hidden>Play again</button>
     </div>
@@ -1624,7 +1668,13 @@
   });
 
   /* ---------- Names and joining ---------- */
-  try { $("name").value = localStorage.getItem("chess-name") || ""; } catch (e) {}
+  try {
+    const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+    const savedName = localStorage.getItem("chess-name") || "";
+    $("name").value = savedName || tgUser?.first_name || "";
+    window.Telegram?.WebApp?.ready?.();
+    window.Telegram?.WebApp?.expand?.();
+  } catch (e) {}
 
   function myName() {
     if (profile) return profile.username;
