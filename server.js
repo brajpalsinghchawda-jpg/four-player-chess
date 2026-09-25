@@ -5,9 +5,12 @@ const express = require("express");
 const { Server } = require("socket.io");
 const Rules = require("./public/rules.js");
 
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
+
 
 // Give each browser a persistent player identity. This keeps the seat stable
 // even when the frontend does not explicitly send playerId on reconnect.
@@ -18,12 +21,21 @@ function getCookie(cookieHeader, name) {
 }
 
 app.use((req, res, next) => {
+  // Telegram game pages must not set cookies.
+  if (req.path === "/telegram-game") return next();
+
   let playerId = getCookie(req.headers.cookie, "chess_player_id");
   if (!playerId) {
     playerId = crypto.randomUUID();
-    res.setHeader("Set-Cookie", `chess_player_id=${encodeURIComponent(playerId)}; Path=/; Max-Age=31536000; SameSite=Lax`);
+    res.setHeader(
+      "Set-Cookie",
+      `chess_player_id=${encodeURIComponent(playerId)}; Path=/; Max-Age=31536000; SameSite=Lax`
+    );
   }
   next();
+});
+app.get("/telegram-game", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
 app.use(express.static(path.join(__dirname, "public")));
@@ -177,36 +189,55 @@ function resolveTurn(room) {
 // Returns true if the current player just ran out of time
 function checkTimeout(room) {
   if (room.tickingSince === null) return false;
+
   settle(room);
+
   const color = COLORS[room.turnIndex];
+
   if (room.times[color] > 0) return false;
+
   room.times[color] = 0;
+
   if (room.mode === "teams") {
     endTeamsGame(room, color, "ran out of time");
   } else {
     eliminate(room, color, "ran out of time");
     resolveTurn(room);
   }
+
   return true;
 }
 
-/* ---------- Sending state to players ---------- */
 // Names come from players, so clean them: no HTML characters, max 16 letters
 function cleanName(raw, color) {
-  const name = String(raw || "").replace(/[<>&"'`]/g, "").replace(/\s+/g, " ").trim().slice(0, 16);
+  const name = String(raw || "")
+    .replace(/[<>&"'`]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 16);
+
   return name || capitalize(color);
 }
 
 function broadcast(code) {
   const room = rooms.get(code);
   if (!room) return;
+
   settle(room);
+
   io.to(code).emit("room", {
     code,
     state: room.state,
     turnIndex: room.turnIndex,
-    seats: Object.fromEntries(COLORS.map((c) => [c, room.seats[c] ? room.names[c] : null])),
-    names: Object.fromEntries(COLORS.map((c) => [c, displayName(room, c)])),
+
+    seats: Object.fromEntries(
+      COLORS.map((c) => [c, room.seats[c] ? room.names[c] : null])
+    ),
+
+    names: Object.fromEntries(
+      COLORS.map((c) => [c, displayName(room, c)])
+    ),
+
     eliminated: room.eliminated,
     started: room.started,
     mode: room.mode,
@@ -215,12 +246,18 @@ function broadcast(code) {
     winningTeam: room.winningTeam,
     draw: room.draw,
     clock: room.clock,
-    times: Object.fromEntries(COLORS.map((c) => [c, Math.max(0, Math.round(room.times[c]))])),
+
+    times: Object.fromEntries(
+      COLORS.map((c) => [
+        c,
+        Math.max(0, Math.round(room.times[c]))
+      ])
+    ),
+
     ticking: room.tickingSince !== null,
     last: room.last,
   });
 }
-
 // Every quarter of a second, check whether anyone's time has run out
 setInterval(() => {
   for (const [code, room] of rooms) {
@@ -411,7 +448,88 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", leave);
 });
+// ---------- Telegram HTML5 Game ----------
 
+async function telegramApi(method, data) {
+  const response = await fetch(`${TELEGRAM_API}/${method}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+
+  return response.json();
+}
+
+// Tell Telegram that our bot supports inline mode.
+telegramApi("setMyCommands", {
+  commands: [
+    {
+      command: "start",
+      description: "Start Four Player Chess",
+    },
+  ],
+}).catch(console.error);
+
+// Poll Telegram for updates.
+let telegramOffset = 0;
+
+async function pollTelegram() {
+  try {
+    const result = await telegramApi("getUpdates", {
+      offset: telegramOffset,
+      timeout: 30,
+      allowed_updates: ["inline_query", "callback_query", "message"],
+    });
+
+    if (result.ok && Array.isArray(result.result)) {
+      for (const update of result.result) {
+        telegramOffset = update.update_id + 1;
+
+        // Inline mode: @Fourplayerchessgamebot
+        if (update.inline_query) {
+          const query = update.inline_query;
+
+          await telegramApi("answerInlineQuery", {
+            inline_query_id: query.id,
+            results: [
+              {
+                type: "game",
+                id: "fourplayerchess",
+                game_short_name: "fourplayerchess",
+              },
+            ],
+            cache_time: 0,
+          });
+        }
+
+        // User presses the Play button.
+        if (update.callback_query) {
+          const callback = update.callback_query;
+
+          if (callback.game_short_name === "fourplayerchess") {
+            await telegramApi("answerCallbackQuery", {
+              callback_query_id: callback.id,
+              url: `https://four-player-chess-7yll.onrender.com/telegram-game`,
+            });
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Telegram polling error:", error.message);
+  }
+
+  setImmediate(pollTelegram);
+}
+
+if (!TELEGRAM_BOT_TOKEN) {
+  console.error("TELEGRAM_BOT_TOKEN is missing");
+} else {
+  console.log("Telegram bot token is present");
+  pollTelegram();
+}
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`4-player chess is running: http://localhost:${PORT}`);
