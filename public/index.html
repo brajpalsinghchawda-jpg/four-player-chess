@@ -987,6 +987,22 @@
   }
   .back-toggle:active { transform:scale(.96); }
 
+.game-invite-popup { position:fixed; top:calc(18px + env(safe-area-inset-top,0px)); left:50%; transform:translateX(-50%); width:min(calc(100vw - 28px),430px); z-index:101; padding:15px; border:1px solid rgba(59,130,246,.35); border-radius:18px; background:linear-gradient(145deg,rgba(25,29,40,.98),rgba(10,13,20,.98)); box-shadow:0 24px 70px rgba(0,0,0,.62),0 0 35px rgba(59,130,246,.08); backdrop-filter:blur(18px); }
+  .game-invite-popup-title { font-weight:800; font-size:15px; margin-bottom:5px; }
+  .game-invite-popup-text { color:var(--muted); font-size:12px; line-height:1.45; }
+  .game-invite-popup-actions { display:flex; gap:8px; margin-top:12px; }
+  .game-invite-popup-actions .premium-button { flex:1; }
+  .friend-actions { display:flex; gap:6px; flex-shrink:0; }
+  .friend-actions .premium-button { min-width:68px; }
+  @media (max-width:560px) {
+    .friend-request-row { align-items:flex-start; }
+    .friend-request-actions { flex-direction:column; }
+    .friend-request-actions .premium-button { min-width:68px; }
+  }
+
+
+
+
 </style>
 </head>
 <body>
@@ -1140,6 +1156,14 @@
     </div>
   </div>
 
+  <div id="gameInvitePopup" class="game-invite-popup" hidden>
+    <div class="game-invite-popup-title">Game invitation</div>
+    <div id="gameInvitePopupText" class="game-invite-popup-text"></div>
+    <div class="game-invite-popup-actions">
+      <button id="gameInviteJoin" class="premium-button primary small" type="button">Join game</button>
+      <button id="gameInviteDecline" class="premium-button ghost small" type="button">Decline</button>
+    </div>
+  </div>
   <div id="toasts" class="toast-stack"></div>
   <div id="note" class="note-banner"></div>
   <div id="overlay" class="overlay" hidden></div>
@@ -1687,12 +1711,17 @@
   /* ---------- Friends / direct invite (Step 3) ---------- */
   let friendsCache = [];
   let requestsCache = [];
+  let gameInvitesCache = [];
+  let seenGameInviteIds = new Set();
+  let gameInvitesInitialized = false;
+  let popupGameInviteId = null;
   function openFriendsPanel() {
     const panel = $("friendsPanel");
     if (!panel) return;
     panel.hidden = false;
     $("friendsNote").textContent = "";
     loadFriends();
+    loadGameInvites(false);
   }
   function closeFriendsPanel() { $("friendsPanel").hidden = true; }
   function friendMessage(message) { $("friendsNote").textContent = message; }
@@ -1703,11 +1732,16 @@
       list.innerHTML = '<div class="friends-empty">No friends yet. Search a username above to send a request.</div>';
       return;
     }
+    const inGame = $("friendsPanel")?.dataset.gameMode === "true" && !!me.code;
     list.innerHTML = friendsCache.map((f) => `
       <div class="friend-row">
         <div style="min-width:0"><div class="friend-name">${esc(f.username)}</div><div class="friend-status">${esc(f.status || "Friend")}</div></div>
-        <button class="premium-button ghost small friend-remove-btn" type="button" data-remove-friend="${esc(f.id)}">Remove</button>
+        <div class="friend-actions">
+          ${inGame ? `<button class="premium-button primary small" type="button" data-invite-user="${esc(f.id)}">Invite</button>` : ""}
+          <button class="premium-button ghost small" type="button" data-remove-friend="${esc(f.id)}">Remove</button>
+        </div>
       </div>`).join("");
+    list.querySelectorAll("[data-invite-user]").forEach((btn) => btn.addEventListener("click", () => sendGameInvite(btn.getAttribute("data-invite-user"))));
     list.querySelectorAll("[data-remove-friend]").forEach((btn) => btn.addEventListener("click", () => removeFriend(btn.getAttribute("data-remove-friend"))));
   }
   function renderRequests() {
@@ -1820,6 +1854,145 @@
     renderFriends();
     renderRequests();
   }
+  async function sendGameInvite(friendId) {
+    if (!me.code) { friendMessage("Create or join a room first."); return; }
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { friendMessage("Please sign in first."); return; }
+
+    const { data: existing, error: existingError } = await sb.from("game_invites")
+      .select("id")
+      .eq("sender_id", session.user.id)
+      .eq("recipient_id", friendId)
+      .eq("status", "pending")
+      .limit(1);
+
+    if (existingError) {
+      console.error("Check game invite:", existingError);
+      friendMessage("Game invitations are not configured yet. Run the supplied Step 4 SQL.");
+      return;
+    }
+    if (existing?.length) {
+      friendMessage("A game invitation is already pending for this friend.");
+      return;
+    }
+
+    const { error } = await sb.from("game_invites").insert({
+      sender_id: session.user.id,
+      recipient_id: friendId,
+      room_code: me.code,
+      status: "pending"
+    });
+
+    if (error) {
+      console.error("Send game invite:", error);
+      friendMessage("Could not send game invitation. Run the supplied Step 4 SQL and refresh.");
+      return;
+    }
+
+    const friend = friendsCache.find(f => String(f.id) === String(friendId));
+    friendMessage("Game invitation sent to " + (friend?.username || "your friend") + ".");
+  }
+
+  async function fetchGameInvites() {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) return { data: [], error: null };
+
+    const { data: invites, error } = await sb.from("game_invites")
+      .select("id, sender_id, recipient_id, room_code, status, created_at")
+      .eq("recipient_id", session.user.id)
+      .eq("status", "pending")
+      .order("created_at", { ascending: true });
+    if (error) return { data: [], error };
+
+    const ids = [...new Set((invites || []).map(i => i.sender_id).filter(Boolean))];
+    if (!ids.length) return { data: [], error: null };
+    const { data: profiles, error: profileError } = await sb.from("profiles")
+      .select("id, username")
+      .in("id", ids);
+    if (profileError) return { data: [], error: profileError };
+
+    const byId = Object.fromEntries((profiles || []).map(p => [String(p.id), p.username]));
+    return {
+      data: (invites || []).map(i => ({
+        ...i,
+        username: byId[String(i.sender_id)] || "Unknown"
+      })),
+      error: null
+    };
+  }
+
+  async function loadGameInvites(showErrors = false) {
+    const { data, error } = await fetchGameInvites();
+    if (error) {
+      console.error("Game invitations:", error);
+      if (showErrors && error.code !== "42P01") {
+        friendMessage("Could not load game invitations. Check the Step 4 SQL setup.");
+      }
+      return;
+    }
+
+    const rows = (data || []).map(r => ({
+      id: String(r.id),
+      senderId: r.sender_id,
+      roomCode: r.room_code,
+      username: r.username || "Unknown"
+    }));
+    gameInvitesCache = rows;
+
+    const newInvite = rows.find(r =>
+      !seenGameInviteIds.has(String(r.id)) &&
+      (!gameInvitesInitialized || !seenGameInviteIds.has(String(r.id)))
+    );
+    rows.forEach(r => seenGameInviteIds.add(String(r.id)));
+
+    if (newInvite) showGameInvitePopup(newInvite);
+    gameInvitesInitialized = true;
+  }
+
+  function showGameInvitePopup(invite) {
+    popupGameInviteId = String(invite.id);
+    const popup = $("gameInvitePopup");
+    if (!popup) return;
+    $("gameInvitePopupText").textContent = `${invite.username} invited you to a game (Room ${invite.roomCode}).`;
+    popup.hidden = false;
+  }
+
+  function hideGameInvitePopup() {
+    popupGameInviteId = null;
+    $("gameInvitePopup").hidden = true;
+  }
+
+  async function updateGameInvite(id, action) {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session || !id) return;
+    const invite = gameInvitesCache.find(i => String(i.id) === String(id));
+    if (!invite) { hideGameInvitePopup(); return; }
+
+    const nextStatus = action === "join" ? "accepted" : "rejected";
+    const { error } = await sb.from("game_invites")
+      .update({ status: nextStatus })
+      .eq("id", id)
+      .eq("recipient_id", session.user.id)
+      .eq("status", "pending");
+
+    if (error) {
+      console.error("Update game invite:", error);
+      friendMessage("Could not update game invitation. Check the Step 4 SQL policies.");
+      return;
+    }
+
+    hideGameInvitePopup();
+    gameInvitesCache = gameInvitesCache.filter(i => String(i.id) !== String(id));
+    if (action === "join") {
+      friendMessage("Joining " + invite.username + "'s game...");
+      join(invite.roomCode);
+    } else {
+      friendMessage("Game invitation declined.");
+    }
+    loadGameInvites(false);
+  }
+
+
   async function addFriend() {
     const username = $("friendSearch").value.trim().slice(0,20);
     if (!username) { friendMessage("Enter a username first."); return; }
@@ -1844,6 +2017,20 @@
   $("closeFriends")?.addEventListener("click", closeFriendsPanel);
   $("addFriend")?.addEventListener("click", addFriend);
   $("friendsPanel")?.addEventListener("click", (e) => { if (e.target === $("friendsPanel")) closeFriendsPanel(); });
+
+  function startGameInvitePolling() {
+    setInterval(() => loadGameInvites(false), 3000);
+    loadGameInvites(false);
+  }
+
+  $("gameInviteJoin")?.addEventListener("click", () => {
+    if (popupGameInviteId) updateGameInvite(popupGameInviteId, "join");
+  });
+  $("gameInviteDecline")?.addEventListener("click", () => {
+    if (popupGameInviteId) updateGameInvite(popupGameInviteId, "decline");
+  });
+
+  startGameInvitePolling();
 
   /* ---------- Rotating the board ---------- */
   // Turns a square on the screen (i, j) into the real board square (r, c)
