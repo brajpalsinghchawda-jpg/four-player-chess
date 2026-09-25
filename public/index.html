@@ -834,6 +834,8 @@
   }
   .board-frame::after { content:""; position:absolute; inset:7px; border-radius:21px; border:1px solid rgba(255,255,255,.055); pointer-events:none; }
   #board { border-radius:14px; box-shadow:0 0 0 1px rgba(0,0,0,.62), 0 18px 40px rgba(0,0,0,.30), inset 0 0 45px rgba(0,0,0,.30); }
+  #board .sq { transition: background-color .12s ease, box-shadow .12s ease; }
+  #board .piece { transition: opacity .12s ease, transform .12s ease; }
   .sq.light { background:linear-gradient(145deg, #e5dfd0, #d4cebf); }
   .sq.dark { background:linear-gradient(145deg, #817b6d, #706b60); }
   .sq.picked { background:#f0dc7a; box-shadow:inset 0 0 0 3px rgba(255,255,255,.92), inset 0 0 20px rgba(245,179,1,.28); }
@@ -1074,11 +1076,21 @@
   #lobby.setup-create #joinSetupCard, #lobby.setup-join #createSetupCard { display:none; }
   #lobby.setup-create .or-divider, #lobby.setup-join .or-divider { display:none; }
   @media (max-width:560px) { .landing-actions { grid-template-columns:1fr; } .landing-card { min-height:155px; } .landing-screen { padding-top:8px; } }
-  /* ---------- Two-screen app flow: Lobby -> Chess Board ---------- */
+  /* ---------- HARD two-screen app flow: Lobby OR Chess Board ---------- */
   #lobby { position: relative; z-index: 2; }
   #game[hidden] { display:none !important; }
   #game:not([hidden]) { min-height:100vh; }
   #brandHeader[hidden] { display:none !important; }
+
+  /* Never allow the chess board to sit below the lobby. The two views are
+     mutually exclusive full-screen states. */
+  body.game-screen #brandHeader,
+  body.game-screen #lobby,
+  body.game-screen #account,
+  body.game-screen #landingScreen,
+  body.game-screen #setupBack { display:none !important; }
+  body.game-screen #game { display:block !important; min-height:100vh; }
+  body:not(.game-screen) #game { display:none !important; }
 
 </style>
 </head>
@@ -1326,6 +1338,27 @@
     $("winnerClose")?.addEventListener("click", () => { overlay.hidden = true; });
   }
 
+  let boardCells = [];
+  function ensureBoardCells(boardEl) {
+    if (boardCells.length === SIZE * SIZE && boardEl.children.length === SIZE * SIZE) return;
+    boardEl.replaceChildren();
+    boardCells = [];
+    for (let i = 0; i < SIZE; i++) {
+      for (let j = 0; j < SIZE; j++) {
+        const el = document.createElement("div");
+        el.className = "sq";
+        el.setAttribute("role", "gridcell");
+        el.addEventListener("click", () => {
+          const turnsNow = me.color ? ROTATION[me.color] : 0;
+          const [r, c] = toBoard(i, j, turnsNow);
+          onSquareClick(r, c);
+        });
+        boardCells.push(el);
+        boardEl.appendChild(el);
+      }
+    }
+  }
+
   function render() {
     if (!room) return;
     if (room.over && !previousGameOver) { showWinnerOverlay(); Sound.play("victory"); }
@@ -1391,33 +1424,43 @@
     $("last").textContent = room.last;
 
     const boardEl = $("board");
-    boardEl.innerHTML = "";
+    // Keep the same board DOM nodes between socket updates. Rebuilding every
+    // square on every move caused visible refresh/jitter in Telegram.
+    ensureBoardCells(boardEl);
     for (let i = 0; i < SIZE; i++) {
       for (let j = 0; j < SIZE; j++) {
         const [r, c] = toBoard(i, j, turns);
-        const el = document.createElement("div");
+        const el = boardCells[i * SIZE + j];
+        if (!el) continue;
+        const voidSq = Rules.isVoid(r, c);
+        const piece = voidSq ? null : room.state[r][c];
+        const shouldPick = !!(selected && selected.r === r && selected.c === c);
+        const shouldTarget = !!targets.some(([tr, tc]) => tr === r && tc === c);
+        const renderKey = JSON.stringify({
+          r, c, voidSq,
+          piece: piece ? { color: piece.color, type: piece.type, dead: !!piece.dead } : null,
+          check: checkedKings.has(r + "," + c),
+          pick: shouldPick, target: shouldTarget
+        });
+        if (el.dataset.renderKey === renderKey) continue;
+        el.dataset.renderKey = renderKey;
         el.className = "sq";
-        if (Rules.isVoid(r, c)) {
+        el.replaceChildren();
+        if (voidSq) {
           el.classList.add("void");
         } else {
           el.classList.add((i + j) % 2 === 0 ? "light" : "dark");
-          const piece = room.state[r][c];
           if (piece) {
             el.classList.add(piece.dead ? "dead" : piece.color);
             if (checkedKings.has(r + "," + c)) el.classList.add("incheck");
-
-            // Keep the existing chess glyphs/game logic, but wrap each piece in a
-            // color class so the four players can have their own piece colors.
             const pieceEl = document.createElement("span");
             pieceEl.className = `piece ${piece.color}${piece.dead ? " dead" : ""}`;
             pieceEl.textContent = GLYPH[piece.type] + "\uFE0E";
             el.appendChild(pieceEl);
           }
-          if (selected && selected.r === r && selected.c === c) el.classList.add("picked");
-          if (targets.some(([tr, tc]) => tr === r && tc === c)) el.classList.add(piece ? "capture" : "target");
-          el.addEventListener("click", () => onSquareClick(r, c));
+          if (shouldPick) el.classList.add("picked");
+          if (shouldTarget) el.classList.add(piece ? "capture" : "target");
         }
-        boardEl.appendChild(el);
       }
     }
   }
@@ -1785,6 +1828,7 @@
     $("account").hidden = true;
     $("lobby").hidden = true;
     $("game").hidden = false;
+    document.body.classList.add("game-screen");
     $("backToLobby").hidden = false;
     $("roomBanner").hidden = false;
     $("roomCodeText").textContent = code;
