@@ -1053,6 +1053,27 @@
 
 /* Telegram version: keep Friends functionality in code, but hide Friends UI. */
 #friendsBtn, #friendsPanel, [data-friends], .friends-button, .friends-panel { display:none !important; }
+
+  /* ---------- Two-screen Telegram lobby ---------- */
+  .landing-screen { min-height: calc(100vh - 150px); display:flex; align-items:center; justify-content:center; padding:24px 18px 50px; }
+  .landing-inner { width:min(760px,100%); text-align:center; animation:cardIn 420ms var(--ease); }
+  .landing-head { margin-bottom:28px; }
+  .landing-kicker { display:inline-flex; align-items:center; padding:8px 14px; border:1px solid rgba(245,179,1,.25); border-radius:999px; color:var(--muted); font-size:11px; font-weight:800; letter-spacing:.14em; background:rgba(245,179,1,.06); margin-bottom:16px; }
+  .landing-head h2 { margin:0; font-family:var(--font-display); font-size:clamp(34px,7vw,58px); line-height:1; letter-spacing:.01em; }
+  .landing-head p { margin:12px 0 0; color:var(--muted); font-size:15px; letter-spacing:.12em; text-transform:uppercase; }
+  .landing-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+  .landing-card { position:relative; min-height:190px; padding:25px; text-align:left; color:inherit; border:1px solid rgba(255,255,255,.10); border-radius:24px; background:linear-gradient(145deg,rgba(255,255,255,.085),rgba(255,255,255,.025)); box-shadow:0 18px 50px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.07); cursor:pointer; transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease; font:inherit; }
+  .landing-card:hover { transform:translateY(-4px); border-color:rgba(245,179,1,.38); box-shadow:0 24px 65px rgba(0,0,0,.35),0 0 28px rgba(245,179,1,.07); }
+  .landing-card:active { transform:scale(.985); }
+  .landing-card-icon { display:block; font-size:38px; line-height:1; margin-bottom:26px; }
+  .landing-card-title { display:block; font-family:var(--font-display); font-size:22px; font-weight:800; letter-spacing:.04em; }
+  .landing-card-sub { display:block; margin-top:7px; color:var(--muted); font-size:13px; }
+  .landing-card-arrow { position:absolute; right:22px; bottom:20px; font-size:25px; color:var(--accent,#f5b301); }
+  .setup-back { display:block; margin:8px auto 12px; border:0; background:transparent; color:var(--muted); font:inherit; cursor:pointer; padding:8px 12px; }
+  .setup-back:hover { color:var(--text); }
+  #lobby.setup-create #joinSetupCard, #lobby.setup-join #createSetupCard { display:none; }
+  #lobby.setup-create .or-divider, #lobby.setup-join .or-divider { display:none; }
+  @media (max-width:560px) { .landing-actions { grid-template-columns:1fr; } .landing-card { min-height:155px; } .landing-screen { padding-top:8px; } }
 </style>
 </head>
 <body>
@@ -1088,12 +1109,33 @@
     <div id="authNote"></div>
   </section>
 
-  <section id="lobby" class="lobby-wrap">
-    <div class="lobby-head entrance">
-      <h2>Play with friends. Own the board.</h2>
-      <p>Create a match or join your friends with a 6-character room code.</p>
+  <section id="landingScreen" class="landing-screen" hidden>
+  <div class="landing-inner">
+    <div class="landing-head">
+      <div class="landing-kicker">PLAY WITH FRIENDS. OWN THE BOARD.</div>
+      <h2>Four Player Chess</h2>
+      <p>One board. Four minds.</p>
     </div>
-    <div class="glass-panel lobby-card entrance">
+    <div class="landing-actions">
+      <button id="showCreateSetup" class="landing-card" type="button">
+        <span class="landing-card-icon">♟</span>
+        <span class="landing-card-title">Create Match</span>
+        <span class="landing-card-sub">Start a new game</span>
+        <span class="landing-card-arrow">→</span>
+      </button>
+      <button id="showJoinSetup" class="landing-card" type="button">
+        <span class="landing-card-icon">↗</span>
+        <span class="landing-card-title">Join Room</span>
+        <span class="landing-card-sub">Enter a room code</span>
+        <span class="landing-card-arrow">→</span>
+      </button>
+    </div>
+  </div>
+</section>
+
+<button id="setupBack" class="setup-back" type="button" hidden>← Back</button>
+<section id="lobby" class="lobby-wrap">
+    <div id="createSetupCard" class="glass-panel lobby-card entrance">
       <h2 class="card-title">Create a match</h2>
       <div class="field">
         <label for="name">Your name</label>
@@ -1132,7 +1174,7 @@
 
     <div class="or-divider entrance"><span>OR</span></div>
 
-    <div class="glass-panel lobby-card entrance">
+    <div id="joinSetupCard" class="glass-panel lobby-card entrance">
       <h2 class="card-title">Join a match</h2>
       <div class="field">
         <label for="code">Room code</label>
@@ -1727,6 +1769,8 @@
   socket.on("problem", (msg) => { $("note").textContent = msg; });
 
   socket.on("joined", ({ code, color }) => {
+    const landingScreen = document.getElementById("landingScreen"); if (landingScreen) landingScreen.hidden = true;
+    const setupBack = document.getElementById("setupBack"); if (setupBack) setupBack.hidden = true;
     me = { code, color };
     localStorage.setItem("seat-" + code, color || "");
     location.hash = code;
@@ -2209,5 +2253,6 @@
     render();
   }
 </script>
+
 </body>
 </html>
