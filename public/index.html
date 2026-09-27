@@ -1497,18 +1497,26 @@
         if (el.dataset.renderKey === renderKey) continue;
         el.dataset.renderKey = renderKey;
         el.className = "sq";
-        el.replaceChildren();
         if (voidSq) {
           el.classList.add("void");
+          if (el.firstChild) el.replaceChildren();
         } else {
           el.classList.add((i + j) % 2 === 0 ? "light" : "dark");
+          const existingPieceEl = el.firstElementChild;
           if (piece) {
             el.classList.add(piece.dead ? "dead" : piece.color);
             if (checkedKings.has(r + "," + c)) el.classList.add("incheck");
-            const pieceEl = document.createElement("span");
-            pieceEl.className = `piece ${piece.color}${piece.dead ? " dead" : ""}`;
-            pieceEl.textContent = GLYPH[piece.type] + "\uFE0E";
-            el.appendChild(pieceEl);
+            const pieceKey = `${piece.color}:${piece.type}:${piece.dead ? 1 : 0}`;
+            if (!existingPieceEl || existingPieceEl.dataset.pieceKey !== pieceKey) {
+              const pieceEl = document.createElement("span");
+              pieceEl.className = `piece ${piece.color}${piece.dead ? " dead" : ""}`;
+              pieceEl.dataset.pieceKey = pieceKey;
+              pieceEl.textContent = GLYPH[piece.type] + "\uFE0E";
+              if (existingPieceEl) existingPieceEl.replaceWith(pieceEl);
+              else el.appendChild(pieceEl);
+            }
+          } else if (existingPieceEl) {
+            existingPieceEl.remove();
           }
           if (shouldPick) el.classList.add("picked");
           if (shouldTarget) el.classList.add(piece ? "capture" : "target");
