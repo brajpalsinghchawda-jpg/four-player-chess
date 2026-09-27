@@ -7,6 +7,15 @@ const Rules = require("./public/rules.js");
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
+if (TELEGRAM_BOT_TOKEN) {
+  fetch(`${TELEGRAM_API}/getMe`)
+    .then(r => r.json())
+    .then(data => {
+      console.log("Telegram authentication:", data.ok ? "SUCCESS" : "FAILED");
+      if (!data.ok) console.log("Telegram error:", data.description);
+    })
+    .catch(err => console.error("Telegram connection error:", err.message));
+}
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
