@@ -470,78 +470,103 @@ async function telegramApi(method, data) {
 
   return response.json();
 }
+// ---------- Telegram HTML5 Game via Webhook ----------
 
-// Tell Telegram that our bot supports inline mode.
-telegramApi("setMyCommands", {
-  commands: [
-    {
-      command: "start",
-      description: "Start Four Player Chess",
-    },
-  ],
-}).catch(console.error);
+const TELEGRAM_GAME_URL =
+  "https://four-player-chess-7yll.onrender.com/telegram-game";
 
-// Poll Telegram for updates.
-let telegramOffset = 0;
+const TELEGRAM_WEBHOOK_URL =
+  "https://four-player-chess-7yll.onrender.com/telegram-webhook";
 
-async function pollTelegram() {
-  try {
-    const result = await telegramApi("getUpdates", {
-      offset: telegramOffset,
-      timeout: 30,
-      allowed_updates: ["inline_query", "callback_query", "message"],
+async function handleTelegramUpdate(update) {
+  // Inline mode: @Fourplayerchessgamebot
+  if (update.inline_query) {
+    const query = update.inline_query;
+
+    await telegramApi("answerInlineQuery", {
+      inline_query_id: query.id,
+      results: [
+        {
+          type: "game",
+          id: "fourplayerchess",
+          game_short_name: "fourplayerchess",
+        },
+      ],
+      cache_time: 0,
     });
-
-    if (result.ok && Array.isArray(result.result)) {
-      for (const update of result.result) {
-        telegramOffset = update.update_id + 1;
-
-        // Inline mode: @Fourplayerchessgamebot
-        if (update.inline_query) {
-          const query = update.inline_query;
-
-          await telegramApi("answerInlineQuery", {
-            inline_query_id: query.id,
-            results: [
-              {
-                type: "game",
-                id: "fourplayerchess",
-                game_short_name: "fourplayerchess",
-              },
-            ],
-            cache_time: 0,
-          });
-        }
-
-        // User presses the Play button.
-        if (update.callback_query) {
-          const callback = update.callback_query;
-
-          if (callback.game_short_name === "fourplayerchess") {
-            await telegramApi("answerCallbackQuery", {
-              callback_query_id: callback.id,
-              url: `https://four-player-chess-7yll.onrender.com/telegram-game`,
-            });
-          }
-        }
-      }
-    }
-  } catch (error) {
-    console.error("Telegram polling error:", error.message);
   }
 
-  setImmediate(pollTelegram);
+  // User presses the Play button
+  if (update.callback_query) {
+    const callback = update.callback_query;
+
+    if (callback.game_short_name === "fourplayerchess") {
+      await telegramApi("answerCallbackQuery", {
+        callback_query_id: callback.id,
+        url: TELEGRAM_GAME_URL,
+      });
+    }
+  }
 }
+
+// Telegram sends updates directly to Render.
+// Your laptop does NOT need to stay on.
+app.post("/telegram-webhook", express.json(), async (req, res) => {
+  try {
+    await handleTelegramUpdate(req.body);
+    res.sendStatus(200);
+  } catch (error) {
+    console.error("Telegram webhook error:", error.message);
+    res.sendStatus(500);
+  }
+});
 
 if (!TELEGRAM_BOT_TOKEN) {
   console.error("TELEGRAM_BOT_TOKEN is missing");
 } else {
   console.log("Telegram bot token is present");
-  pollTelegram();
+
+  telegramApi("setMyCommands", {
+    commands: [
+      {
+        command: "start",
+        description: "Start Four Player Chess",
+      },
+    ],
+  }).catch((error) => {
+    console.error("Telegram setMyCommands error:", error.message);
+  });
 }
+
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
+
+server.listen(PORT, async () => {
   console.log(`4-player chess is running: http://localhost:${PORT}`);
+
+  if (TELEGRAM_BOT_TOKEN) {
+    try {
+      const result = await telegramApi("setWebhook", {
+        url: TELEGRAM_WEBHOOK_URL,
+        allowed_updates: [
+          "inline_query",
+          "callback_query",
+          "message",
+        ],
+      });
+
+      console.log(
+        "Telegram webhook:",
+        result.ok
+          ? "SET SUCCESSFULLY"
+          : `FAILED - ${result.description || "unknown error"}`
+      );
+    } catch (error) {
+      console.error(
+        "Telegram webhook error:",
+        error.message
+      );
+    }
+  }
 });
 
 if (process.env.CHESS_TEST) module.exports = { rooms }; // lets the automatic tests look inside
