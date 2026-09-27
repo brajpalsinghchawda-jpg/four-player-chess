@@ -1339,6 +1339,9 @@
   }
 
   let boardCells = [];
+  let checkedKingsRoom = null;
+  let checkedKingsCache = new Set();
+  let turnPlayerInCheckCache = false;
   function ensureBoardCells(boardEl) {
     if (boardCells.length === SIZE * SIZE && boardEl.children.length === SIZE * SIZE) return;
     boardEl.replaceChildren();
@@ -1372,15 +1375,22 @@
     const turns = me.color ? ROTATION[me.color] : 0;
 
     // Kings that are in check get a red highlight
-    const teams = teamsMap();
-    const checkedKings = new Set();
-    let turnPlayerInCheck = false;
-    for (const c of TURN_ORDER) {
-      if (room.eliminated[c] || !Rules.isInCheck(room.state, c, teams)) continue;
-      const king = Rules.findKing(room.state, c);
-      checkedKings.add(king[0] + "," + king[1]);
-      if (c === turnColor) turnPlayerInCheck = true;
+    if (checkedKingsRoom !== room) {
+      const teams = teamsMap();
+      const checkedKings = new Set();
+      let turnPlayerInCheck = false;
+      for (const c of TURN_ORDER) {
+        if (room.eliminated[c] || !Rules.isInCheck(room.state, c, teams)) continue;
+        const king = Rules.findKing(room.state, c);
+        checkedKings.add(king[0] + "," + king[1]);
+        if (c === turnColor) turnPlayerInCheck = true;
+      }
+      checkedKingsRoom = room;
+      checkedKingsCache = checkedKings;
+      turnPlayerInCheckCache = turnPlayerInCheck;
     }
+    const checkedKings = checkedKingsCache;
+    const turnPlayerInCheck = turnPlayerInCheckCache;
 
     const partner = room.mode === "teams" && me.color ? Rules.TEAMMATE[me.color] : null;
     $("you").innerHTML = me.color
@@ -1544,7 +1554,10 @@
       }
       requestAnimationFrame(tick);
     }
-    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) requestAnimationFrame(tick);
+    // Keep the animated canvas off on touch devices (including Telegram's
+    // mobile WebView), where it competes with the board for every frame.
+    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches &&
+        !window.matchMedia("(pointer: coarse)").matches) requestAnimationFrame(tick);
   })();
 
   /* ================= Sound ================= */
