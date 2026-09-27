@@ -1096,6 +1096,43 @@
   @media (max-width: 700px) {
     #board { width: min(96vw, 68vh, 620px); }
     .sq { font-size: min(6vw, 4.7vh, 34px); }
+
+    .arena {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-rows: auto auto;
+      gap: 8px 5px;
+    }
+    #hudTop { grid-column: 1; grid-row: 1; }
+    #hudLeft { grid-column: 2; grid-row: 1; }
+    #hudRight { grid-column: 3; grid-row: 1; }
+    #hudBottom { grid-column: 4; grid-row: 1; }
+    .board-frame { grid-column: 1 / 5; grid-row: 2; }
+
+    .player-card {
+      min-width: 0;
+      max-width: none;
+      padding: 7px 5px;
+      text-align: center;
+    }
+    .player-card .pc-dot { display: none; }
+    .player-card > strong {
+      display: block;
+      overflow: hidden;
+      font-size: 11px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .player-card .pc-badge {
+      margin-top: 3px;
+      padding: 1px 4px;
+      font-size: 8px;
+    }
+    .player-card .pc-clock {
+      display: block;
+      margin-top: 2px;
+      font-size: 15px;
+      line-height: 1.1;
+    }
   }
 </style>
 </head>
