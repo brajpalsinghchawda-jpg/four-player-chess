@@ -417,7 +417,7 @@
   .player-card.color-gold { --pc: var(--gold); }
   .player-card.color-green { --pc: var(--green); }
   .player-card .pc-dot { background: var(--pc); color: var(--pc); }
-  .player-card.active { border-color: var(--pc); box-shadow: 0 0 0 1px var(--pc) inset, 0 10px 30px -6px var(--pc); animation: cardPulse 1.8s ease-in-out infinite; }
+  .player-card.active { border-color: var(--pc); box-shadow: 0 0 0 1px var(--pc) inset, 0 10px 30px -6px var(--pc); }
   .player-card.active .pc-clock { color: var(--pc); }
   .player-card.active .pc-badge.turn { background: color-mix(in srgb, var(--pc) 30%, transparent); color: var(--text); }
   .player-card.low-time .pc-clock { color: #ff6b6b; animation: clockPulse 1s ease-in-out infinite; }
@@ -499,7 +499,7 @@
     border: 3px solid rgba(239,68,68,0.85);
     box-shadow: 0 0 10px rgba(239,68,68,0.4);
   }
-  .sq .piece { display: inline-block; will-change: transform; transition: transform 260ms var(--ease); }
+  .sq .piece { display: inline-block; transition: transform 260ms var(--ease); }
   .sq .piece.pop-in { animation: popIn 220ms var(--ease); }
   .sq:hover:not(.void) .piece { transform: scale(1.08); }
   .sq.picked .piece { transform: scale(1.14); filter: drop-shadow(0 0 6px rgba(255,255,255,0.6)); }
@@ -508,7 +508,7 @@
   .gold .piece, .piece.gold { color: var(--gold); }
   .green .piece, .piece.green { color: var(--green); }
   .sq.dead .piece { color: #8a8577; opacity: 0.55; filter: grayscale(1); }
-  .sq.incheck { animation: checkGlow 1s ease-in-out infinite; }
+  .sq.incheck { box-shadow: inset 0 0 0 3px rgba(239,68,68,0.7), inset 0 0 14px rgba(239,68,68,0.3); }
   @keyframes checkGlow {
     0%, 100% { box-shadow: inset 0 0 0 3px rgba(239,68,68,0.55), inset 0 0 16px rgba(239,68,68,0.35); }
     50% { box-shadow: inset 0 0 0 3px rgba(239,68,68,0.9), inset 0 0 26px rgba(239,68,68,0.6); }
