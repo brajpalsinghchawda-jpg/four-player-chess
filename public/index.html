@@ -1092,6 +1092,11 @@
   body.game-screen #game { display:block !important; min-height:100vh; }
   body:not(.game-screen) #game { display:none !important; }
 
+  /* Larger, mobile-only board and piece sizing; board geometry and rules stay unchanged. */
+  @media (max-width: 700px) {
+    #board { width: min(96vw, 68vh, 620px); }
+    .sq { font-size: min(6vw, 4.7vh, 34px); }
+  }
 </style>
 </head>
 <body>
